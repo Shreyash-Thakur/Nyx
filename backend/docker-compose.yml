@@ -1,0 +1,115 @@
+version: "3.9"
+
+x-common-env: &common-env
+  DATABASE_URL: postgresql://ledgerflow:ledgerflow@db:5432/ledgerflow
+  REDIS_URL: redis://redis:6379/0
+  SECRET_KEY: dev-secret-key-change-in-production
+  JWT_SECRET_KEY: dev-jwt-secret-key-change-in-production
+  APP_ENV: development
+  DEBUG: "true"
+  LOG_FORMAT: console
+  UPLOAD_DIR: /app/uploads
+  STORAGE_BACKEND: local
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ledgerflow
+      POSTGRES_USER: ledgerflow
+      POSTGRES_PASSWORD: ledgerflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+    volumes:
+      - .:/app
+      - uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+    volumes:
+      - .:/app
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      rq worker ocr reconciliation
+      --url redis://redis:6379/0
+      --name ledgerflow-worker
+
+  rq-dashboard:
+    image: eoranged/rq-dashboard
+    restart: unless-stopped
+    environment:
+      RQ_DASHBOARD_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "9181:9181"
+    depends_on:
+      - redis
+
+  frontend:
+    build:
+      context: ../frontend-next
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
