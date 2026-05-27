@@ -1,0 +1,24 @@
+version: "3.9"
+
+# Production overrides. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  api:
+    build:
+      target: production
+    environment:
+      APP_ENV: production
+      DEBUG: "false"
+      LOG_FORMAT: json
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers
+
+  worker:
+    restart: always
+
+  db:
+    ports: []  # don't expose DB port in production
+
+  redis:
+    ports: []  # don't expose Redis port in production
