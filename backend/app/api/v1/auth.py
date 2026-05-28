@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 
 from app.core.exceptions import bad_request, conflict, unauthorized
 from app.core.exceptions import AuthenticationError, ConflictError
+from app.core.limiter import limiter
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-def register(payload: RegisterRequest, db: DBSession):
+@limiter.limit("5/minute")
+def register(request: Request, payload: RegisterRequest, db: DBSession):
     """Register a new user account."""
     try:
         user = AuthService(db).register(payload)
@@ -28,7 +30,8 @@ def register(payload: RegisterRequest, db: DBSession):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, request: Request, db: DBSession):
+@limiter.limit("10/minute")
+def login(request: Request, payload: LoginRequest, db: DBSession):
     """Authenticate and receive JWT tokens."""
     try:
         tokens = AuthService(db).login(
