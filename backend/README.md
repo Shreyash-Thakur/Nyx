@@ -53,15 +53,22 @@ ledgerflow/
 
 ```bash
 git clone <repo>
-cd ledgerflow
+cd ledgerflow/backend
 cp .env.example .env
-# Edit .env — at minimum change SECRET_KEY and JWT_SECRET_KEY
+# Edit .env — fill in SECRET_KEY, JWT_SECRET_KEY, and POSTGRES_PASSWORD at minimum
+# Generate secrets: openssl rand -hex 32
 ```
 
 ### 2. Start all services
 
+**Development:**
 ```bash
 docker compose up --build
+```
+
+**Production:**
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 This starts:
