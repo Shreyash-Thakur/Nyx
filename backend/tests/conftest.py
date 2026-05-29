@@ -36,7 +36,10 @@ def setup_db():
 def db():
     connection = engine.connect()
     transaction = connection.begin()
-    session = TestingSession(bind=connection)
+    # join_transaction_mode="create_savepoint" ensures app-level session.commit()
+    # only commits a SAVEPOINT, not the outer transaction — so teardown rollback
+    # properly undoes all test data even when endpoint code calls commit().
+    session = TestingSession(bind=connection, join_transaction_mode="create_savepoint")
     yield session
     session.close()
     transaction.rollback()
