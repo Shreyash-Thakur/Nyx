@@ -69,7 +69,7 @@ export function Sidebar() {
           </svg>
         </div>
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-          <span className="brand-name">LedgerFlow</span>
+          <span className="brand-name">Nyx</span>
           <span className="brand-tag">Ops · v1.0</span>
         </div>
       </div>

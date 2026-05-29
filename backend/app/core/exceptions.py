@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 
 
-class LedgerFlowError(Exception):
+class NyxError(Exception):
     """Base application error."""
 
     def __init__(self, message: str, code: str | None = None) -> None:
@@ -10,31 +10,31 @@ class LedgerFlowError(Exception):
         super().__init__(message)
 
 
-class NotFoundError(LedgerFlowError):
+class NotFoundError(NyxError):
     pass
 
 
-class ConflictError(LedgerFlowError):
+class ConflictError(NyxError):
     pass
 
 
-class ValidationError(LedgerFlowError):
+class ValidationError(NyxError):
     pass
 
 
-class AuthenticationError(LedgerFlowError):
+class AuthenticationError(NyxError):
     pass
 
 
-class AuthorizationError(LedgerFlowError):
+class AuthorizationError(NyxError):
     pass
 
 
-class StorageError(LedgerFlowError):
+class StorageError(NyxError):
     pass
 
 
-class ProcessingError(LedgerFlowError):
+class ProcessingError(NyxError):
     pass
 
 

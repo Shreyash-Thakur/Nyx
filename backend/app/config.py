@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_ENV: Literal["development", "staging", "production"] = "development"
-    APP_NAME: str = "LedgerFlow"
+    APP_NAME: str = "Nyx"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     S3_ENDPOINT_URL: str | None = None
     S3_ACCESS_KEY_ID: str | None = None
     S3_SECRET_ACCESS_KEY: str | None = None
-    S3_BUCKET_NAME: str = "ledgerflow-invoices"
+    S3_BUCKET_NAME: str = "nyx-invoices"
     S3_REGION: str = "ap-south-1"
 
     # OCR

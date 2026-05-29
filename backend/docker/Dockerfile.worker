@@ -27,4 +27,4 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Run both OCR and reconciliation queues in one worker process
-CMD ["sh", "-c", "rq worker ocr reconciliation --with-scheduler --url $REDIS_URL --name ledgerflow-worker"]
+CMD ["sh", "-c", "rq worker ocr reconciliation --with-scheduler --url $REDIS_URL --name nyx-worker"]

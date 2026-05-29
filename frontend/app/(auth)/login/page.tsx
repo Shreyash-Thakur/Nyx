@@ -45,7 +45,7 @@ export default function LoginPage() {
               <path d="M4 6h16M4 12h10M4 18h16"/>
             </svg>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text-1)" }}>LedgerFlow</span>
+          <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text-1)" }}>Nyx</span>
         </div>
 
         {/* Card */}
@@ -116,7 +116,7 @@ export default function LoginPage() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "var(--text-4)" }}>
-          LedgerFlow · Finance Operations Platform
+          Nyx · Finance Operations Platform
         </div>
       </motion.div>
 

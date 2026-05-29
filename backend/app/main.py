@@ -21,17 +21,17 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("ledgerflow_starting", version=settings.APP_VERSION, env=settings.APP_ENV)
+    logger.info("nyx_starting", version=settings.APP_VERSION, env=settings.APP_ENV)
     if not check_db_connection():
         logger.error("database_unreachable")
     else:
         logger.info("database_connected")
     yield
-    logger.info("ledgerflow_shutdown")
+    logger.info("nyx_shutdown")
 
 
 app = FastAPI(
-    title="LedgerFlow API",
+    title="Nyx API",
     description=(
         "Finance operations and invoice reconciliation platform. "
         "Upload invoices, extract structured data via OCR, and reconcile against records."

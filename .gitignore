@@ -22,7 +22,7 @@ ENV/
 .env.*.local
 
 # Uploads / user data
-ledgerflow/uploads/
+nyx/uploads/
 
 # Logs
 *.log

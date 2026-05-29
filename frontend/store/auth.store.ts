@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false }),
     }),
     {
-      name: "ledgerflow-auth",
+      name: "nyx-auth",
       partialize: (s) => ({
         accessToken: s.accessToken,
         refreshToken: s.refreshToken,

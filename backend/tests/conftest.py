@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 # Use a test DB or in-memory SQLite for unit tests
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql://ledgerflow:ledgerflow@localhost:5432/ledgerflow_test",
+    "postgresql://nyx:nyx@localhost:5432/nyx_test",
 )
 
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
@@ -16,7 +16,7 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-32-characters!!")
 os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-key-32-characters!!!!!")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("STORAGE_BACKEND", "local")
-os.environ.setdefault("UPLOAD_DIR", "/tmp/ledgerflow_test_uploads")
+os.environ.setdefault("UPLOAD_DIR", "/tmp/nyx_test_uploads")
 
 from app.database import Base, get_db
 from app.main import app
@@ -63,7 +63,7 @@ def admin_user(db):
     from app.models.user import User, UserRole
 
     user = User(
-        email="admin@ledgerflow.test",
+        email="admin@nyx.test",
         full_name="Test Admin",
         hashed_password=hash_password("Admin1234"),
         role=UserRole.ADMIN,
@@ -79,7 +79,7 @@ def admin_user(db):
 def admin_token(client):
     resp = client.post(
         "/api/v1/auth/login",
-        json={"email": "admin@ledgerflow.test", "password": "Admin1234"},
+        json={"email": "admin@nyx.test", "password": "Admin1234"},
     )
     return resp.json()["access_token"]
 

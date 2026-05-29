@@ -57,7 +57,7 @@ export default function SettingsPage() {
         <div className="card" style={{ borderColor: "rgba(242,107,123,0.2)" }}>
           <div className="card-header"><span className="card-title" style={{ color: "var(--danger)" }}>Session</span></div>
           <div className="card-body">
-            <button className="btn btn-danger" onClick={logout}>Sign out of LedgerFlow</button>
+            <button className="btn btn-danger" onClick={logout}>Sign out of Nyx</button>
           </div>
         </div>
       </div>

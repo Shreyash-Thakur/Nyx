@@ -1,4 +1,4 @@
-# LedgerFlow
+# Nyx
 
 **Finance Operations & Invoice Reconciliation Platform**
 
@@ -9,7 +9,7 @@ A production-oriented backend built with FastAPI, PostgreSQL, Redis, and RQ — 
 ## Architecture
 
 ```
-ledgerflow/
+nyx/
 ├── app/
 │   ├── api/v1/         # Route handlers (auth, invoices, vendors, reconciliation, dashboard, audit)
 │   ├── models/         # SQLAlchemy ORM models
@@ -53,7 +53,7 @@ ledgerflow/
 
 ```bash
 git clone <repo>
-cd ledgerflow/backend
+cd nyx/backend
 cp .env.example .env
 # Edit .env — fill in SECRET_KEY, JWT_SECRET_KEY, and POSTGRES_PASSWORD at minimum
 # Generate secrets: openssl rand -hex 32
@@ -229,7 +229,7 @@ APP_ENV=production
 
 ```bash
 # Requires a running test database
-TEST_DATABASE_URL=postgresql://ledgerflow:ledgerflow@localhost:5432/ledgerflow_test \
+TEST_DATABASE_URL=postgresql://nyx:nyx@localhost:5432/nyx_test \
 pytest --cov=app --cov-report=term-missing
 ```
 

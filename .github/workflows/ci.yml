@@ -14,8 +14,8 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: ledgerflow_test
-          POSTGRES_USER: ledgerflow
+          POSTGRES_DB: nyx_test
+          POSTGRES_USER: nyx
           POSTGRES_PASSWORD: testpassword
         ports:
           - 5432:5432
@@ -60,19 +60,19 @@ jobs:
 
       - name: Run migrations
         env:
-          DATABASE_URL: postgresql://ledgerflow:testpassword@localhost:5432/ledgerflow_test
+          DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
           SECRET_KEY: ci-secret-key-32-chars-not-for-prod
           JWT_SECRET_KEY: ci-jwt-key-32-chars-not-for-prod!!
         run: alembic upgrade head
 
       - name: Run tests
         env:
-          TEST_DATABASE_URL: postgresql://ledgerflow:testpassword@localhost:5432/ledgerflow_test
-          DATABASE_URL: postgresql://ledgerflow:testpassword@localhost:5432/ledgerflow_test
+          TEST_DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
+          DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
           REDIS_URL: redis://localhost:6379/1
           SECRET_KEY: ci-secret-key-32-chars-not-for-prod
           JWT_SECRET_KEY: ci-jwt-key-32-chars-not-for-prod!!
           APP_ENV: development
           STORAGE_BACKEND: local
-          UPLOAD_DIR: /tmp/ledgerflow_test_uploads
+          UPLOAD_DIR: /tmp/nyx_test_uploads
         run: pytest tests/ -v --tb=short

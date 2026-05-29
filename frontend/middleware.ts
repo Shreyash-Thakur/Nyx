@@ -5,7 +5,7 @@ const PUBLIC_PATHS = ["/login"]
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isAuthenticated = request.cookies.has("ledgerflow_auth")
+  const isAuthenticated = request.cookies.has("nyx_auth")
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 

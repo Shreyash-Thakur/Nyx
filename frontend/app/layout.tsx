@@ -16,7 +16,7 @@ const geistMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: { default: "LedgerFlow", template: "%s · LedgerFlow" },
+  title: { default: "Nyx", template: "%s · Nyx" },
   description: "Finance operations and invoice reconciliation platform",
   robots: "noindex",
 }

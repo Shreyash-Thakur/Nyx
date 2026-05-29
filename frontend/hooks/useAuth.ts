@@ -12,7 +12,7 @@ export function useLogin() {
     mutationFn: authService.login,
     onSuccess: async (tokens) => {
       setTokens(tokens.access_token, tokens.refresh_token)
-      document.cookie = `ledgerflow_auth=1; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+      document.cookie = `nyx_auth=1; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
       const user = await authService.me()
       setUser(user)
       router.replace("/")
@@ -27,7 +27,7 @@ export function useLogout() {
   const qc = useQueryClient()
   return () => {
     logout()
-    document.cookie = "ledgerflow_auth=; path=/; max-age=0"
+    document.cookie = "nyx_auth=; path=/; max-age=0"
     qc.clear()
     router.replace("/login")
   }
