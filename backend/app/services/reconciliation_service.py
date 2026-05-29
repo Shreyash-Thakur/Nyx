@@ -91,7 +91,7 @@ class ReconciliationService:
             f"Reconciliation {status.value} for invoice {invoice.id}",
             user_id=current_user.id,
             invoice_id=invoice.id,
-            metadata={
+            extra_data={
                 "status": status.value,
                 "confidence": confidence,
                 "discrepancy": str(discrepancy_amount) if discrepancy_amount else None,
@@ -122,7 +122,7 @@ class ReconciliationService:
             f"Reconciliation record {record_id} resolved as {payload.status}",
             user_id=current_user.id,
             invoice_id=record.invoice_id,
-            metadata={"resolution_notes": payload.resolution_notes},
+            extra_data={"resolution_notes": payload.resolution_notes},
         )
         self.db.commit()
         return record

@@ -18,7 +18,7 @@ class AuditRepository(BaseRepository[AuditLog]):
         *,
         user_id: uuid.UUID | None = None,
         invoice_id: uuid.UUID | None = None,
-        metadata: dict | None = None,
+        extra_data: dict | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> AuditLog:
@@ -27,7 +27,7 @@ class AuditRepository(BaseRepository[AuditLog]):
             description=description,
             user_id=user_id,
             invoice_id=invoice_id,
-            metadata=metadata,
+            extra_data=extra_data,
             ip_address=ip_address,
             user_agent=user_agent,
         )

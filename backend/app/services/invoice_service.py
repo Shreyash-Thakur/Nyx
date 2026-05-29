@@ -82,7 +82,7 @@ class InvoiceService:
             f"Invoice uploaded: {invoice.original_filename}",
             user_id=current_user.id,
             invoice_id=invoice.id,
-            metadata={"size_bytes": len(content), "checksum": checksum},
+            extra_data={"size_bytes": len(content), "checksum": checksum},
         )
         self.db.commit()
 
@@ -127,7 +127,7 @@ class InvoiceService:
                 f"Invoice updated: {invoice_id}",
                 user_id=current_user.id,
                 invoice_id=invoice.id,
-                metadata={"changed_fields": changed},
+                extra_data={"changed_fields": changed},
             )
             self.db.commit()
 
@@ -179,7 +179,7 @@ class InvoiceService:
             AuditEventType.INVOICE_PROCESSING_COMPLETED,
             f"OCR extraction completed for invoice {invoice_id}",
             invoice_id=invoice.id,
-            metadata={"confidence": extracted.get("ocr_confidence")},
+            extra_data={"confidence": extracted.get("ocr_confidence")},
         )
         self.db.commit()
         return invoice

@@ -37,7 +37,7 @@ class VendorService:
             AuditEventType.VENDOR_CREATED,
             f"Vendor created: {vendor.name}",
             user_id=current_user.id,
-            metadata={"vendor_id": str(vendor.id)},
+            extra_data={"vendor_id": str(vendor.id)},
         )
         self.db.commit()
         return vendor
@@ -62,7 +62,7 @@ class VendorService:
             AuditEventType.VENDOR_UPDATED,
             f"Vendor updated: {vendor.name}",
             user_id=current_user.id,
-            metadata={"vendor_id": str(vendor.id)},
+            extra_data={"vendor_id": str(vendor.id)},
         )
         self.db.commit()
         return vendor
