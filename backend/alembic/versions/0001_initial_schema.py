@@ -18,57 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Enums
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE user_role AS ENUM ('admin', 'accountant', 'viewer');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE invoice_status AS ENUM
-                ('uploaded','queued','processing','extracted','validated','reconciled','failed','duplicate');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE payment_status AS ENUM ('pending','paid','overdue','partial','cancelled');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE reconciliation_status AS ENUM
-                ('pending','matched','partial_match','unmatched','discrepancy','duplicate','manually_resolved');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE discrepancy_type AS ENUM
-                ('amount_mismatch','duplicate_invoice','vendor_mismatch','date_mismatch','missing_reference','tax_mismatch');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE job_type AS ENUM ('ocr_extraction','data_validation','reconciliation');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE job_status AS ENUM ('queued','started','completed','failed','retrying','cancelled');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE audit_event_type AS ENUM (
-                'user_login','user_logout','user_created','password_changed',
-                'invoice_uploaded','invoice_queued','invoice_processing_started',
-                'invoice_processing_completed','invoice_processing_failed',
-                'invoice_validated','invoice_updated','invoice_deleted','invoice_duplicate_detected',
-                'reconciliation_started','reconciliation_matched','reconciliation_discrepancy','reconciliation_resolved',
-                'vendor_created','vendor_updated');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-
     # users
     op.create_table(
         "users",
@@ -76,7 +25,7 @@ def upgrade() -> None:
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("full_name", sa.String(255), nullable=False),
         sa.Column("hashed_password", sa.String(255), nullable=False),
-        sa.Column("role", sa.Enum("admin", "accountant", "viewer", name="user_role", create_type=False), nullable=False, server_default="accountant"),
+        sa.Column("role", sa.Enum("admin", "accountant", "viewer", name="user_role"), nullable=False, server_default="accountant"),
         sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
         sa.Column("is_verified", sa.Boolean, nullable=False, server_default="false"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -111,8 +60,8 @@ def upgrade() -> None:
         sa.Column("file_size_bytes", sa.Integer, nullable=True),
         sa.Column("content_type", sa.String(100), nullable=False, server_default="application/pdf"),
         sa.Column("checksum", sa.String(64), nullable=True),
-        sa.Column("status", sa.Enum(name="invoice_status", create_type=False), nullable=False, server_default="uploaded"),
-        sa.Column("payment_status", sa.Enum(name="payment_status", create_type=False), nullable=False, server_default="pending"),
+        sa.Column("status", sa.Enum("uploaded", "queued", "processing", "extracted", "validated", "reconciled", "failed", "duplicate", name="invoice_status"), nullable=False, server_default="uploaded"),
+        sa.Column("payment_status", sa.Enum("pending", "paid", "overdue", "partial", "cancelled", name="payment_status"), nullable=False, server_default="pending"),
         sa.Column("invoice_number", sa.String(100), nullable=True),
         sa.Column("invoice_date", sa.Date, nullable=True),
         sa.Column("due_date", sa.Date, nullable=True),
@@ -163,8 +112,8 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
         sa.Column("matched_by", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("status", sa.Enum(name="reconciliation_status", create_type=False), nullable=False, server_default="pending"),
-        sa.Column("discrepancy_type", sa.Enum(name="discrepancy_type", create_type=False), nullable=True),
+        sa.Column("status", sa.Enum("pending", "matched", "partial_match", "unmatched", "discrepancy", "duplicate", "manually_resolved", name="reconciliation_status"), nullable=False, server_default="pending"),
+        sa.Column("discrepancy_type", sa.Enum("amount_mismatch", "duplicate_invoice", "vendor_mismatch", "date_mismatch", "missing_reference", "tax_mismatch", name="discrepancy_type"), nullable=True),
         sa.Column("confidence_score", sa.Float, nullable=True),
         sa.Column("reference_document_id", sa.String(200), nullable=True),
         sa.Column("reference_document_type", sa.String(50), nullable=True),
@@ -185,8 +134,8 @@ def upgrade() -> None:
         "processing_jobs",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("job_type", sa.Enum(name="job_type", create_type=False), nullable=False),
-        sa.Column("status", sa.Enum(name="job_status", create_type=False), nullable=False, server_default="queued"),
+        sa.Column("job_type", sa.Enum("ocr_extraction", "data_validation", "reconciliation", name="job_type"), nullable=False),
+        sa.Column("status", sa.Enum("queued", "started", "completed", "failed", "retrying", "cancelled", name="job_status"), nullable=False, server_default="queued"),
         sa.Column("rq_job_id", sa.String(200), nullable=True),
         sa.Column("attempt_count", sa.Integer, nullable=False, server_default="0"),
         sa.Column("max_attempts", sa.Integer, nullable=False, server_default="3"),
@@ -206,7 +155,15 @@ def upgrade() -> None:
     op.create_table(
         "audit_logs",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("event_type", sa.Enum(name="audit_event_type", create_type=False), nullable=False),
+        sa.Column("event_type", sa.Enum(
+            "user_login", "user_logout", "user_created", "password_changed",
+            "invoice_uploaded", "invoice_queued", "invoice_processing_started",
+            "invoice_processing_completed", "invoice_processing_failed",
+            "invoice_validated", "invoice_updated", "invoice_deleted", "invoice_duplicate_detected",
+            "reconciliation_started", "reconciliation_matched", "reconciliation_discrepancy", "reconciliation_resolved",
+            "vendor_created", "vendor_updated",
+            name="audit_event_type",
+        ), nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
         sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True),
         sa.Column("description", sa.Text, nullable=False),
