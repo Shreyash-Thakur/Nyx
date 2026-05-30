@@ -46,7 +46,7 @@ class AuditLog(BaseModel):
     __tablename__ = "audit_logs"
 
     event_type: Mapped[AuditEventType] = mapped_column(
-        Enum(AuditEventType, name="audit_event_type"),
+        Enum(AuditEventType, name="audit_event_type", create_type=False),
         nullable=False,
         index=True,
     )

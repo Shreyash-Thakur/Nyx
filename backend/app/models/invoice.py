@@ -50,13 +50,13 @@ class Invoice(BaseModel):
 
     # Status
     status: Mapped[InvoiceStatus] = mapped_column(
-        Enum(InvoiceStatus, name="invoice_status"),
+        Enum(InvoiceStatus, name="invoice_status", create_type=False),
         default=InvoiceStatus.UPLOADED,
         nullable=False,
         index=True,
     )
     payment_status: Mapped[PaymentStatus] = mapped_column(
-        Enum(PaymentStatus, name="payment_status"),
+        Enum(PaymentStatus, name="payment_status", create_type=False),
         default=PaymentStatus.PENDING,
         nullable=False,
     )

@@ -41,12 +41,12 @@ class ProcessingJob(BaseModel):
     )
 
     job_type: Mapped[JobType] = mapped_column(
-        Enum(JobType, name="job_type"),
+        Enum(JobType, name="job_type", create_type=False),
         nullable=False,
         index=True,
     )
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status"),
+        Enum(JobStatus, name="job_status", create_type=False),
         default=JobStatus.QUEUED,
         nullable=False,
         index=True,

@@ -49,13 +49,13 @@ class ReconciliationRecord(BaseModel):
     )
 
     status: Mapped[ReconciliationStatus] = mapped_column(
-        Enum(ReconciliationStatus, name="reconciliation_status"),
+        Enum(ReconciliationStatus, name="reconciliation_status", create_type=False),
         default=ReconciliationStatus.PENDING,
         nullable=False,
         index=True,
     )
     discrepancy_type: Mapped[DiscrepancyType | None] = mapped_column(
-        Enum(DiscrepancyType, name="discrepancy_type"),
+        Enum(DiscrepancyType, name="discrepancy_type", create_type=False),
         nullable=True,
     )
 
