@@ -1,276 +1,147 @@
-# Nyx
+# Nyx Backend
 
-**Finance Operations & Invoice Reconciliation Platform**
+FastAPI + SQLAlchemy + Alembic + (optionally) Redis/RQ.
+Runs on **SQLite** with **zero external services** by default; switches to
+**PostgreSQL + Redis** in production via environment variables.
 
-A production-oriented backend built with FastAPI, PostgreSQL, Redis, and RQ — designed for invoice lifecycle management, OCR extraction, and automated reconciliation.
-
----
-
-## Architecture
-
-```
-nyx/
-├── app/
-│   ├── api/v1/         # Route handlers (auth, invoices, vendors, reconciliation, dashboard, audit)
-│   ├── models/         # SQLAlchemy ORM models
-│   ├── schemas/        # Pydantic request/response schemas
-│   ├── services/       # Business logic layer
-│   ├── repositories/   # Data access layer (repository pattern)
-│   ├── workers/        # RQ background job handlers
-│   ├── core/           # Security, exceptions, logging, middleware
-│   ├── config.py       # Pydantic Settings (env-driven)
-│   ├── database.py     # SQLAlchemy engine + session
-│   ├── dependencies.py # FastAPI dependency injection
-│   └── main.py         # FastAPI application entry
-├── alembic/            # Database migrations
-├── docker/             # Dockerfiles (API + Worker)
-├── tests/              # pytest test suite
-├── docker-compose.yml
-└── docker-compose.prod.yml
-```
-
-### Key Design Decisions
-
-| Concern | Approach |
-|---|---|
-| Architecture | Modular monolith — all features in one deployable unit |
-| Background jobs | Redis + RQ (no Kafka/Celery complexity) |
-| Auth | Stateless JWT (access + refresh tokens) |
-| File storage | Local or S3-compatible (swap via `STORAGE_BACKEND` env var) |
-| OCR | pytesseract + pdf2image — runs in worker process |
-| Idempotency | SHA-256 checksum prevents duplicate uploads |
-| Audit | Every significant action appended to `audit_logs` |
-| Migrations | Alembic with explicit up/down for every change |
+For project-level orientation see [`../README.md`](../README.md) and the
+architecture docs at [`../docs/architecture/`](../docs/architecture/).
 
 ---
 
-## Quick Start (Docker Compose)
-
-### Prerequisites
-- Docker & Docker Compose
-
-### 1. Clone and configure
+## Local quick start
 
 ```bash
-git clone <repo>
-cd nyx/backend
-cp .env.example .env
-# Edit .env — fill in SECRET_KEY, JWT_SECRET_KEY, and POSTGRES_PASSWORD at minimum
-# Generate secrets: openssl rand -hex 32
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+alembic upgrade head               # creates backend/nyx.db
+uvicorn app.main:app --reload      # http://localhost:8000
 ```
 
-### 2. Start all services
+No `.env` file required. All settings have safe development defaults. See
+[`.env.example`](.env.example) to learn what's configurable.
 
-**Development:**
-```bash
-docker compose up --build
-```
-
-**Production:**
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
-
-This starts:
-- **PostgreSQL** on `localhost:5432`
-- **Redis** on `localhost:6379`
-- **API** on `http://localhost:8000`
-- **Worker** (OCR + reconciliation queues)
-- **RQ Dashboard** on `http://localhost:9181`
-
-Alembic migrations run automatically when the API starts.
-
-### 3. Verify
+### Health check
 
 ```bash
 curl http://localhost:8000/health
-# → {"status":"healthy","version":"1.0.0",...}
+# → {"status":"healthy",...}  (or "degraded" if Redis is offline — that's fine in dev)
 ```
 
-Interactive API docs: **http://localhost:8000/docs**
+OpenAPI docs: **http://localhost:8000/docs** (development only).
 
 ---
 
-## Development Setup (Local)
+## What runs without Redis?
+
+The OCR + reconciliation pipeline normally enqueues jobs to Redis via RQ.
+When Redis is unavailable (or `QUEUE_BACKEND=inline`), the same job functions
+run **inline in the request thread**. The API contract is unchanged — `POST
+/api/v1/invoices` still returns 202 — but the work happens before the response
+returns instead of in a worker. This is fine for development and demos.
+
+For production set `QUEUE_BACKEND=redis` (or `auto` with `REDIS_URL` reachable)
+and run an RQ worker:
 
 ```bash
-# Python 3.12+
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Start Postgres and Redis (or point .env at existing instances)
-cp .env.example .env
-
-# Run migrations
-alembic upgrade head
-
-# Start API
-uvicorn app.main:app --reload --port 8000
-
-# Start worker (separate terminal)
 rq worker ocr reconciliation --url redis://localhost:6379/0
 ```
 
 ---
 
-## API Reference
+## OCR system dependencies (optional)
 
-### Authentication
+`pytesseract` and `pdf2image` need binaries on the host:
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/auth/register` | Create account |
-| POST | `/api/v1/auth/login` | Get JWT tokens |
-| POST | `/api/v1/auth/refresh` | Refresh access token |
-| GET | `/api/v1/auth/me` | Current user profile |
-| POST | `/api/v1/auth/change-password` | Change password |
+- **macOS:** `brew install tesseract poppler`
+- **Ubuntu/Debian:** `sudo apt-get install tesseract-ocr poppler-utils`
+- **Windows:** install Tesseract from
+  [UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) and Poppler from
+  [oschwartz10612/poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases),
+  then add both to `PATH`.
 
-### Invoices
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/invoices` | Upload PDF invoice (multipart) |
-| GET | `/api/v1/invoices` | List with filters + pagination |
-| GET | `/api/v1/invoices/{id}` | Invoice detail with line items |
-| PATCH | `/api/v1/invoices/{id}` | Manual field correction |
-| GET | `/api/v1/invoices/{id}/jobs` | Processing job history |
-
-**Upload flow:**
-1. `POST /api/v1/invoices` → HTTP 202 (accepted)
-2. OCR job queued in Redis → worker extracts fields
-3. Poll `GET /api/v1/invoices/{id}` — `status` progresses: `uploaded → queued → processing → extracted → reconciled`
-
-### Vendors
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/vendors` | Create vendor |
-| GET | `/api/v1/vendors` | List/search vendors |
-| GET | `/api/v1/vendors/{id}` | Vendor detail |
-| PATCH | `/api/v1/vendors/{id}` | Update vendor |
-
-### Reconciliation
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/reconciliation` | Trigger reconciliation for invoice |
-| GET | `/api/v1/reconciliation` | List records with filters |
-| GET | `/api/v1/reconciliation/invoice/{id}` | Records for specific invoice |
-| POST | `/api/v1/reconciliation/{id}/resolve` | Manually resolve discrepancy |
-
-### Dashboard
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/v1/dashboard/overview` | Full metrics snapshot |
-| GET | `/api/v1/dashboard/invoices/summary` | Invoice status counts |
-| GET | `/api/v1/dashboard/discrepancies/summary` | Discrepancy breakdown |
-| GET | `/api/v1/dashboard/queue/status` | Worker queue depth |
-| GET | `/api/v1/dashboard/analytics/trends` | 30-day trends |
-
-### Audit Logs
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/v1/audit` | Query audit trail (filterable) |
+Without these, the API still runs and uploads still succeed. Only the OCR
+worker step fails — the affected invoice ends up in `failed` state with an
+explanatory `extraction_notes` row, exactly as it would for any OCR error.
 
 ---
 
-## Database Schema
-
-```
-users                 → roles: admin / accountant / viewer
-vendors               → GST/PAN indexed, normalized name for matching
-invoices              → full lifecycle status, financial fields, checksum
-invoice_items         → line items extracted from invoice
-processing_jobs       → RQ job tracking with retry state
-reconciliation_records→ match status, discrepancy type, confidence score
-audit_logs            → immutable event log (JSONB metadata)
-```
-
-All tables use:
-- UUID primary keys
-- `created_at` / `updated_at` with DB-level `updated_at` trigger
-- UTC timestamps
-
----
-
-## Reconciliation Engine
-
-The engine runs automatically after OCR extraction and can also be triggered manually.
-
-**Logic:**
-1. **Duplicate check** — same invoice number + vendor + date within configurable window
-2. **Amount matching** — compare `total_amount` vs `expected_amount` with tolerance
-3. **Confidence scoring** — `1 - (diff / expected)`
-4. **Status assignment** — `matched` / `partial_match` / `discrepancy` / `duplicate`
-
-Tolerance is configurable: `RECONCILIATION_TOLERANCE_PERCENT=0.01` (1%).
-
----
-
-## Environment Variables
-
-See `.env.example` for the full reference. Critical production variables:
+## Switching to PostgreSQL
 
 ```bash
-SECRET_KEY=<openssl rand -hex 32>
-JWT_SECRET_KEY=<openssl rand -hex 32>
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-REDIS_URL=redis://host:6379/0
-STORAGE_BACKEND=s3  # or local
-APP_ENV=production
+export DATABASE_URL=postgresql://nyx:nyx@localhost:5432/nyx
+alembic upgrade head
 ```
+
+Alembic migration 0001 is portable across SQLite and PostgreSQL — the same
+migration creates the right schema on either engine.
 
 ---
 
-## Running Tests
+## Docker (optional)
 
 ```bash
-# Requires a running test database
-TEST_DATABASE_URL=postgresql://nyx:nyx@localhost:5432/nyx_test \
-pytest --cov=app --cov-report=term-missing
+docker compose up --build
 ```
 
----
+This still works and brings up Postgres + Redis + API + worker + RQ Dashboard +
+frontend. It is **not required**: the local-first path above is the supported
+default for development.
 
-## Deploying to Render / Railway
-
-### Render
-
-1. Create a **Web Service** pointing to this repo
-2. Set **Dockerfile path**: `docker/Dockerfile`
-3. Set **Docker target**: `production`
-4. Add environment variables from `.env.example`
-5. Add a **PostgreSQL** add-on → copy `DATABASE_URL`
-6. Add a **Redis** add-on → copy `REDIS_URL`
-7. Create a second **Background Worker** service with the same env vars but:
-   - Dockerfile: `docker/Dockerfile.worker`
-   - Start command: `rq worker ocr reconciliation --url $REDIS_URL`
-
-### Railway
+For production, the overlay file:
 
 ```bash
-# Install Railway CLI
-railway login
-railway init
-railway add postgresql
-railway add redis
-railway up
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
-
-Set environment variables in Railway dashboard. Deploy the worker as a second service in the same project.
 
 ---
 
-## Production Checklist
+## API reference (summary)
 
-- [ ] Change `SECRET_KEY` and `JWT_SECRET_KEY` to random 32-byte hex strings
+Full interactive docs at `/docs`. High-level surface:
+
+| Group | Routes |
+|---|---|
+| Auth | `/api/v1/auth/{register,login,refresh,me,change-password}` |
+| Invoices | `/api/v1/invoices`, `/{id}`, `/{id}/jobs` |
+| Vendors | `/api/v1/vendors`, `/{id}` |
+| Reconciliation | `/api/v1/reconciliation`, `/{id}/resolve`, `/invoice/{id}` |
+| Dashboard | `/api/v1/dashboard/{overview,invoices/summary,discrepancies/summary,queue/status,analytics/trends}` |
+| Audit | `/api/v1/audit` |
+| System | `/health`, `/` |
+
+---
+
+## Tests
+
+```bash
+pytest
+```
+
+The default test DB is in-memory SQLite — no setup needed. To run against
+Postgres instead:
+
+```bash
+TEST_DATABASE_URL=postgresql://nyx:nyx@localhost:5432/nyx_test pytest
+```
+
+---
+
+## Production checklist
+
 - [ ] Set `APP_ENV=production`
-- [ ] Set `STORAGE_BACKEND=s3` and configure S3 credentials
-- [ ] Configure `ALLOWED_HOSTS` to your domain
-- [ ] Set up database backups
-- [ ] Configure a reverse proxy (nginx/Caddy) with TLS
-- [ ] Set up log aggregation (e.g., Datadog, Loki)
-- [ ] Monitor the RQ dashboard (`/9181`) or connect to an APM
+- [ ] Generate strong `SECRET_KEY` and `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
+- [ ] Set `DATABASE_URL` to your managed Postgres
+- [ ] Set `REDIS_URL` and `QUEUE_BACKEND=redis`
+- [ ] Set `STORAGE_BACKEND=s3` and configure S3 credentials (or keep `local` with a persistent volume)
+- [ ] Configure `ALLOWED_HOSTS` to your domain(s)
+- [ ] Set up DB backups
+- [ ] Front it with a reverse proxy (nginx / Caddy) terminating TLS
+- [ ] Wire structured logs into your aggregator (`LOG_FORMAT=json`)
+
+### Deploy targets
+
+**Render:** create a Web Service from this repo with Dockerfile path `docker/Dockerfile`, add a Postgres add-on and a Redis add-on, configure env vars from `.env.example`, then add a Background Worker service using `docker/Dockerfile.worker` with `rq worker ocr reconciliation --url $REDIS_URL`.
+
+**Railway:** `railway init && railway add postgresql && railway add redis && railway up`; add a second worker service in the same project.

@@ -22,7 +22,14 @@ ENV/
 .env.*.local
 
 # Uploads / user data
+backend/uploads/
 nyx/uploads/
+
+# Local SQLite databases
+backend/nyx.db
+backend/nyx.db-*
+*.sqlite
+*.sqlite3
 
 # Logs
 *.log
