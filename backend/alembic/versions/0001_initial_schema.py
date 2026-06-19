@@ -4,12 +4,25 @@ Revision ID: 0001
 Revises:
 Create Date: 2025-05-27 00:00:00.000000
 
+Notes
+-----
+This migration is intentionally portable across PostgreSQL and SQLite.
+
+* UUIDs use ``app.core.db_types.GUID`` — native UUID on Postgres, CHAR(36)
+  elsewhere.
+* JSON columns use ``sa.JSON`` (renders as JSONB on Postgres, JSON on SQLite).
+* Enums use ``sa.Enum`` with no ``create_type`` override — SQLAlchemy emits
+  the native CREATE TYPE on Postgres and a VARCHAR + CHECK on SQLite.
+* ``updated_at`` is maintained by the SQLAlchemy ``onupdate=func.now()``
+  on the ORM mixin (see app/models/base.py); we no longer install a
+  Postgres-specific PL/pgSQL trigger here.
 """
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 from alembic import op
+
+from app.core.db_types import GUID
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
@@ -21,13 +34,18 @@ def upgrade() -> None:
     # users
     op.create_table(
         "users",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", GUID(), primary_key=True),
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("full_name", sa.String(255), nullable=False),
         sa.Column("hashed_password", sa.String(255), nullable=False),
-        sa.Column("role", sa.Enum("admin", "accountant", "viewer", name="user_role"), nullable=False, server_default="accountant"),
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
-        sa.Column("is_verified", sa.Boolean, nullable=False, server_default="false"),
+        sa.Column(
+            "role",
+            sa.Enum("admin", "accountant", "viewer", name="user_role"),
+            nullable=False,
+            server_default="accountant",
+        ),
+        sa.Column("is_active", sa.Boolean, nullable=False, server_default=sa.text("1")),
+        sa.Column("is_verified", sa.Boolean, nullable=False, server_default=sa.text("0")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -36,7 +54,7 @@ def upgrade() -> None:
     # vendors
     op.create_table(
         "vendors",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", GUID(), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("normalized_name", sa.String(255), nullable=False),
         sa.Column("gst_number", sa.String(20), nullable=True),
@@ -44,7 +62,7 @@ def upgrade() -> None:
         sa.Column("email", sa.String(255), nullable=True),
         sa.Column("phone", sa.String(20), nullable=True),
         sa.Column("address", sa.Text, nullable=True),
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
+        sa.Column("is_active", sa.Boolean, nullable=False, server_default=sa.text("1")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -54,14 +72,31 @@ def upgrade() -> None:
     # invoices
     op.create_table(
         "invoices",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", GUID(), primary_key=True),
         sa.Column("original_filename", sa.String(500), nullable=False),
         sa.Column("storage_path", sa.String(1000), nullable=False),
         sa.Column("file_size_bytes", sa.Integer, nullable=True),
         sa.Column("content_type", sa.String(100), nullable=False, server_default="application/pdf"),
         sa.Column("checksum", sa.String(64), nullable=True),
-        sa.Column("status", sa.Enum("uploaded", "queued", "processing", "extracted", "validated", "reconciled", "failed", "duplicate", name="invoice_status"), nullable=False, server_default="uploaded"),
-        sa.Column("payment_status", sa.Enum("pending", "paid", "overdue", "partial", "cancelled", name="payment_status"), nullable=False, server_default="pending"),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "uploaded", "queued", "processing", "extracted",
+                "validated", "reconciled", "failed", "duplicate",
+                name="invoice_status",
+            ),
+            nullable=False,
+            server_default="uploaded",
+        ),
+        sa.Column(
+            "payment_status",
+            sa.Enum(
+                "pending", "paid", "overdue", "partial", "cancelled",
+                name="payment_status",
+            ),
+            nullable=False,
+            server_default="pending",
+        ),
         sa.Column("invoice_number", sa.String(100), nullable=True),
         sa.Column("invoice_date", sa.Date, nullable=True),
         sa.Column("due_date", sa.Date, nullable=True),
@@ -75,8 +110,8 @@ def upgrade() -> None:
         sa.Column("ocr_confidence", sa.Float, nullable=True),
         sa.Column("raw_ocr_text", sa.Text, nullable=True),
         sa.Column("extraction_notes", sa.Text, nullable=True),
-        sa.Column("vendor_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("uploaded_by", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column("vendor_id", GUID(), sa.ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("uploaded_by", GUID(), sa.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -89,8 +124,8 @@ def upgrade() -> None:
     # invoice_items
     op.create_table(
         "invoice_items",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", GUID(), primary_key=True),
+        sa.Column("invoice_id", GUID(), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
         sa.Column("description", sa.Text, nullable=False),
         sa.Column("hsn_sac_code", sa.String(20), nullable=True),
         sa.Column("quantity", sa.Numeric(10, 3), nullable=True),
@@ -109,11 +144,28 @@ def upgrade() -> None:
     # reconciliation_records
     op.create_table(
         "reconciliation_records",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("matched_by", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("status", sa.Enum("pending", "matched", "partial_match", "unmatched", "discrepancy", "duplicate", "manually_resolved", name="reconciliation_status"), nullable=False, server_default="pending"),
-        sa.Column("discrepancy_type", sa.Enum("amount_mismatch", "duplicate_invoice", "vendor_mismatch", "date_mismatch", "missing_reference", "tax_mismatch", name="discrepancy_type"), nullable=True),
+        sa.Column("id", GUID(), primary_key=True),
+        sa.Column("invoice_id", GUID(), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("matched_by", GUID(), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "pending", "matched", "partial_match", "unmatched",
+                "discrepancy", "duplicate", "manually_resolved",
+                name="reconciliation_status",
+            ),
+            nullable=False,
+            server_default="pending",
+        ),
+        sa.Column(
+            "discrepancy_type",
+            sa.Enum(
+                "amount_mismatch", "duplicate_invoice", "vendor_mismatch",
+                "date_mismatch", "missing_reference", "tax_mismatch",
+                name="discrepancy_type",
+            ),
+            nullable=True,
+        ),
         sa.Column("confidence_score", sa.Float, nullable=True),
         sa.Column("reference_document_id", sa.String(200), nullable=True),
         sa.Column("reference_document_type", sa.String(50), nullable=True),
@@ -132,16 +184,28 @@ def upgrade() -> None:
     # processing_jobs
     op.create_table(
         "processing_jobs",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("job_type", sa.Enum("ocr_extraction", "data_validation", "reconciliation", name="job_type"), nullable=False),
-        sa.Column("status", sa.Enum("queued", "started", "completed", "failed", "retrying", "cancelled", name="job_status"), nullable=False, server_default="queued"),
+        sa.Column("id", GUID(), primary_key=True),
+        sa.Column("invoice_id", GUID(), sa.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "job_type",
+            sa.Enum("ocr_extraction", "data_validation", "reconciliation", name="job_type"),
+            nullable=False,
+        ),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "queued", "started", "completed", "failed", "retrying", "cancelled",
+                name="job_status",
+            ),
+            nullable=False,
+            server_default="queued",
+        ),
         sa.Column("rq_job_id", sa.String(200), nullable=True),
         sa.Column("attempt_count", sa.Integer, nullable=False, server_default="0"),
         sa.Column("max_attempts", sa.Integer, nullable=False, server_default="3"),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("result", postgresql.JSONB, nullable=True),
+        sa.Column("result", sa.JSON, nullable=True),
         sa.Column("error_message", sa.Text, nullable=True),
         sa.Column("error_traceback", sa.Text, nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -154,20 +218,26 @@ def upgrade() -> None:
     # audit_logs
     op.create_table(
         "audit_logs",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("event_type", sa.Enum(
-            "user_login", "user_logout", "user_created", "password_changed",
-            "invoice_uploaded", "invoice_queued", "invoice_processing_started",
-            "invoice_processing_completed", "invoice_processing_failed",
-            "invoice_validated", "invoice_updated", "invoice_deleted", "invoice_duplicate_detected",
-            "reconciliation_started", "reconciliation_matched", "reconciliation_discrepancy", "reconciliation_resolved",
-            "vendor_created", "vendor_updated",
-            name="audit_event_type",
-        ), nullable=False),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("invoice_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", GUID(), primary_key=True),
+        sa.Column(
+            "event_type",
+            sa.Enum(
+                "user_login", "user_logout", "user_created", "password_changed",
+                "invoice_uploaded", "invoice_queued", "invoice_processing_started",
+                "invoice_processing_completed", "invoice_processing_failed",
+                "invoice_validated", "invoice_updated", "invoice_deleted",
+                "invoice_duplicate_detected",
+                "reconciliation_started", "reconciliation_matched",
+                "reconciliation_discrepancy", "reconciliation_resolved",
+                "vendor_created", "vendor_updated",
+                name="audit_event_type",
+            ),
+            nullable=False,
+        ),
+        sa.Column("user_id", GUID(), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("invoice_id", GUID(), sa.ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True),
         sa.Column("description", sa.Text, nullable=False),
-        sa.Column("extra_data", postgresql.JSONB, nullable=True),
+        sa.Column("extra_data", sa.JSON, nullable=True),
         sa.Column("ip_address", sa.String(45), nullable=True),
         sa.Column("user_agent", sa.String(500), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -177,37 +247,23 @@ def upgrade() -> None:
     op.create_index("ix_audit_user_id", "audit_logs", ["user_id"])
     op.create_index("ix_audit_invoice_id", "audit_logs", ["invoice_id"])
 
-    # updated_at trigger function
-    op.execute("""
-        CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            NEW.updated_at = NOW();
-            RETURN NEW;
-        END;
-        $$ language 'plpgsql';
-    """)
-
-    for tbl in ["users", "vendors", "invoices", "invoice_items",
-                "reconciliation_records", "processing_jobs", "audit_logs"]:
-        op.execute(f"""
-            CREATE TRIGGER set_updated_at
-            BEFORE UPDATE ON {tbl}
-            FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-        """)
-
 
 def downgrade() -> None:
-    for tbl in ["audit_logs", "processing_jobs", "reconciliation_records",
-                "invoice_items", "invoices", "vendors", "users"]:
-        op.execute(f"DROP TRIGGER IF EXISTS set_updated_at ON {tbl}")
-        op.drop_table(tbl)
+    op.drop_table("audit_logs")
+    op.drop_table("processing_jobs")
+    op.drop_table("reconciliation_records")
+    op.drop_table("invoice_items")
+    op.drop_table("invoices")
+    op.drop_table("vendors")
+    op.drop_table("users")
 
-    for enum in [
-        "audit_event_type", "job_status", "job_type",
-        "discrepancy_type", "reconciliation_status",
-        "payment_status", "invoice_status", "user_role",
-    ]:
-        op.execute(f"DROP TYPE IF EXISTS {enum}")
-
-    op.execute("DROP FUNCTION IF EXISTS update_updated_at_column()")
+    # On Postgres the Enum types persist as separate objects and must be dropped
+    # explicitly. On SQLite enums are inlined CHECK constraints — nothing to do.
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        for enum_name in (
+            "audit_event_type", "job_status", "job_type",
+            "discrepancy_type", "reconciliation_status",
+            "payment_status", "invoice_status", "user_role",
+        ):
+            op.execute(f"DROP TYPE IF EXISTS {enum_name}")
