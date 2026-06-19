@@ -22,7 +22,7 @@ class TestRegister:
         resp = client.post(
             "/api/v1/auth/register",
             json={
-                "email": "admin@nyx.test",
+                "email": "admin@nyxapp.com",
                 "full_name": "Duplicate",
                 "password": "Secure1234",
             },
@@ -41,7 +41,7 @@ class TestLogin:
     def test_login_success(self, client, admin_user):
         resp = client.post(
             "/api/v1/auth/login",
-            json={"email": "admin@nyx.test", "password": "Admin1234"},
+            json={"email": "admin@nyxapp.com", "password": "Admin1234"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -52,7 +52,7 @@ class TestLogin:
     def test_login_wrong_password(self, client, admin_user):
         resp = client.post(
             "/api/v1/auth/login",
-            json={"email": "admin@nyx.test", "password": "wrong"},
+            json={"email": "admin@nyxapp.com", "password": "wrong"},
         )
         assert resp.status_code == 401
 
@@ -68,7 +68,7 @@ class TestProtectedRoute:
     def test_me_authenticated(self, client, admin_user, auth_headers):
         resp = client.get("/api/v1/auth/me", headers=auth_headers)
         assert resp.status_code == 200
-        assert resp.json()["email"] == "admin@nyx.test"
+        assert resp.json()["email"] == "admin@nyxapp.com"
 
     def test_me_unauthenticated(self, client):
         resp = client.get("/api/v1/auth/me")
