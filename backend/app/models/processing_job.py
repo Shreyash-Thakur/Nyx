@@ -3,10 +3,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.db_types import GUID
 from app.models.base import BaseModel
 
 from typing import TYPE_CHECKING
@@ -34,19 +34,19 @@ class ProcessingJob(BaseModel):
     __tablename__ = "processing_jobs"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("invoices.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
     job_type: Mapped[JobType] = mapped_column(
-        Enum(JobType, name="job_type", create_type=False),
+        Enum(JobType, name="job_type"),
         nullable=False,
         index=True,
     )
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status", create_type=False),
+        Enum(JobStatus, name="job_status"),
         default=JobStatus.QUEUED,
         nullable=False,
         index=True,
@@ -60,7 +60,7 @@ class ProcessingJob(BaseModel):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
 

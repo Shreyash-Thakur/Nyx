@@ -2,9 +2,9 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.db_types import GUID
 from app.models.base import BaseModel
 
 from typing import TYPE_CHECKING
@@ -17,7 +17,7 @@ class InvoiceItem(BaseModel):
     __tablename__ = "invoice_items"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("invoices.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

@@ -5,9 +5,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.db_types import GUID
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
@@ -50,13 +50,13 @@ class Invoice(BaseModel):
 
     # Status
     status: Mapped[InvoiceStatus] = mapped_column(
-        Enum(InvoiceStatus, name="invoice_status", create_type=False),
+        Enum(InvoiceStatus, name="invoice_status"),
         default=InvoiceStatus.UPLOADED,
         nullable=False,
         index=True,
     )
     payment_status: Mapped[PaymentStatus] = mapped_column(
-        Enum(PaymentStatus, name="payment_status", create_type=False),
+        Enum(PaymentStatus, name="payment_status"),
         default=PaymentStatus.PENDING,
         nullable=False,
     )
@@ -82,10 +82,10 @@ class Invoice(BaseModel):
 
     # Relations
     vendor_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True
+        GUID(), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True
     )
     uploaded_by: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+        GUID(), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
 
     vendor: Mapped["Vendor | None"] = relationship("Vendor", back_populates="invoices")

@@ -4,9 +4,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum, ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.db_types import GUID
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
@@ -37,25 +37,25 @@ class ReconciliationRecord(BaseModel):
     __tablename__ = "reconciliation_records"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("invoices.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     matched_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
 
     status: Mapped[ReconciliationStatus] = mapped_column(
-        Enum(ReconciliationStatus, name="reconciliation_status", create_type=False),
+        Enum(ReconciliationStatus, name="reconciliation_status"),
         default=ReconciliationStatus.PENDING,
         nullable=False,
         index=True,
     )
     discrepancy_type: Mapped[DiscrepancyType | None] = mapped_column(
-        Enum(DiscrepancyType, name="discrepancy_type", create_type=False),
+        Enum(DiscrepancyType, name="discrepancy_type"),
         nullable=True,
     )
 

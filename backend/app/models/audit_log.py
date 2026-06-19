@@ -2,10 +2,10 @@ import enum
 import uuid
 from typing import Any, TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Enum, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.db_types import GUID
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
@@ -46,26 +46,26 @@ class AuditLog(BaseModel):
     __tablename__ = "audit_logs"
 
     event_type: Mapped[AuditEventType] = mapped_column(
-        Enum(AuditEventType, name="audit_event_type", create_type=False),
+        Enum(AuditEventType, name="audit_event_type"),
         nullable=False,
         index=True,
     )
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
     invoice_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("invoices.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
 
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    extra_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    extra_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
