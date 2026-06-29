@@ -42,7 +42,9 @@ def list_vendors(
     page_size: int = Query(20, ge=1, le=100),
 ):
     """List or search vendors."""
-    items, total = VendorService(db).list(search=search, page=page, page_size=page_size)
+    items, total = VendorService(db).list(
+        current_user.tenant_id, search=search, page=page, page_size=page_size
+    )
     return PaginatedResponse(
         items=items,
         total=total,

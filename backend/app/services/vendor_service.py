@@ -69,9 +69,13 @@ class VendorService:
         return vendor
 
     def list(
-        self, search: str | None = None, page: int = 1, page_size: int = 20
+        self,
+        tenant_id: uuid.UUID,
+        search: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
     ) -> tuple[list[Vendor], int]:
         offset = (page - 1) * page_size
         if search:
-            return self.vendor_repo.search(search, limit=page_size, offset=offset)
-        return self.vendor_repo.list_active(limit=page_size, offset=offset)
+            return self.vendor_repo.search(search, tenant_id, limit=page_size, offset=offset)
+        return self.vendor_repo.list_active(tenant_id, limit=page_size, offset=offset)

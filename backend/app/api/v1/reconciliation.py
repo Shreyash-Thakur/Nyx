@@ -62,7 +62,9 @@ def list_reconciliation_records(
         date_from=date_from,
         date_to=date_to,
     )
-    items, total = ReconciliationService(db).list(filters, page=page, page_size=page_size)
+    items, total = ReconciliationService(db).list(
+        filters, current_user.tenant_id, page=page, page_size=page_size
+    )
     return PaginatedResponse(
         items=items,
         total=total,
@@ -83,7 +85,7 @@ def get_reconciliation_for_invoice(
     db: DBSession,
 ):
     """Get all reconciliation records for a specific invoice."""
-    return ReconciliationService(db).get_for_invoice(invoice_id)
+    return ReconciliationService(db).get_for_invoice(invoice_id, current_user.tenant_id)
 
 
 @router.post(

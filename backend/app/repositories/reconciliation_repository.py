@@ -12,10 +12,15 @@ from app.schemas.reconciliation import ReconciliationFilter
 class ReconciliationRepository(BaseRepository[ReconciliationRecord]):
     model = ReconciliationRecord
 
-    def get_by_invoice(self, invoice_id: uuid.UUID) -> list[ReconciliationRecord]:
+    def get_by_invoice(
+        self, invoice_id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> list[ReconciliationRecord]:
         stmt = (
             select(ReconciliationRecord)
-            .where(ReconciliationRecord.invoice_id == invoice_id)
+            .where(
+                ReconciliationRecord.invoice_id == invoice_id,
+                ReconciliationRecord.tenant_id == tenant_id,
+            )
             .order_by(ReconciliationRecord.created_at.desc())
         )
         return list(self.db.scalars(stmt).all())
@@ -24,10 +29,11 @@ class ReconciliationRepository(BaseRepository[ReconciliationRecord]):
         self,
         filters: ReconciliationFilter,
         *,
+        tenant_id: uuid.UUID,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[ReconciliationRecord], int]:
-        conditions = []
+        conditions = [ReconciliationRecord.tenant_id == tenant_id]
 
         if filters.status:
             conditions.append(ReconciliationRecord.status == filters.status)

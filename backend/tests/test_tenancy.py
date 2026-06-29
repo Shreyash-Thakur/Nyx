@@ -54,6 +54,37 @@ def test_invoice_reads_are_tenant_scoped(client, db, admin_user, auth_headers):
     assert client.get(f"/api/v1/invoices/{mine.id}", headers=auth_headers).status_code == 200
 
 
+def test_vendor_list_is_tenant_scoped(client, db, admin_user, auth_headers):
+    from app.models.vendor import Vendor
+
+    db.add(Vendor(name="Mine", normalized_name="mine", tenant_id=admin_user.tenant_id))
+    db.add(Vendor(name="Theirs", normalized_name="theirs", tenant_id=uuid.uuid4()))
+    db.commit()
+
+    body = client.get("/api/v1/vendors", headers=auth_headers).json()
+    assert body["total"] == 1
+
+
+def test_reconciliation_list_is_tenant_scoped(client, db, admin_user, auth_headers):
+    from app.models.reconciliation import ReconciliationRecord, ReconciliationStatus
+
+    inv_mine = Invoice(
+        id=uuid.uuid4(), original_filename="m.pdf", storage_path="m",
+        content_type="application/pdf", uploaded_by=admin_user.id,
+        tenant_id=admin_user.tenant_id,
+    )
+    db.add(inv_mine)
+    db.flush()
+    db.add(ReconciliationRecord(invoice_id=inv_mine.id, status=ReconciliationStatus.PENDING,
+                                tenant_id=admin_user.tenant_id))
+    db.add(ReconciliationRecord(invoice_id=inv_mine.id, status=ReconciliationStatus.PENDING,
+                                tenant_id=uuid.uuid4()))
+    db.commit()
+
+    body = client.get("/api/v1/reconciliation", headers=auth_headers).json()
+    assert body["total"] == 1
+
+
 def test_upload_stamps_uploader_tenant(db, mocker):
     other_tenant = uuid.uuid4()
     user = User(

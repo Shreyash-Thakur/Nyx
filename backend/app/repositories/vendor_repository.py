@@ -1,4 +1,4 @@
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.vendor import Vendor
@@ -17,21 +17,27 @@ class VendorRepository(BaseRepository[Vendor]):
         stmt = select(Vendor).where(Vendor.normalized_name == normalized)
         return self.db.scalar(stmt)
 
-    def search(self, query: str, *, limit: int = 20, offset: int = 0) -> tuple[list[Vendor], int]:
+    def search(
+        self, query: str, tenant_id, *, limit: int = 20, offset: int = 0
+    ) -> tuple[list[Vendor], int]:
         pattern = f"%{query.lower()}%"
-        base_filter = or_(
-            func.lower(Vendor.name).like(pattern),
-            Vendor.gst_number.ilike(pattern),
+        base_filter = and_(
+            Vendor.tenant_id == tenant_id,
+            or_(
+                func.lower(Vendor.name).like(pattern),
+                Vendor.gst_number.ilike(pattern),
+            ),
         )
         total = self.count(base_filter)
         stmt = select(Vendor).where(base_filter).limit(limit).offset(offset)
         return list(self.db.scalars(stmt).all()), total
 
-    def list_active(self, *, limit: int = 50, offset: int = 0) -> tuple[list[Vendor], int]:
-        total = self.count(Vendor.is_active.is_(True))
+    def list_active(self, tenant_id, *, limit: int = 50, offset: int = 0) -> tuple[list[Vendor], int]:
+        base_filter = and_(Vendor.tenant_id == tenant_id, Vendor.is_active.is_(True))
+        total = self.count(base_filter)
         stmt = (
             select(Vendor)
-            .where(Vendor.is_active.is_(True))
+            .where(base_filter)
             .order_by(Vendor.name)
             .limit(limit)
             .offset(offset)

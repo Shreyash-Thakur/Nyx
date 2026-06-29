@@ -144,14 +144,19 @@ class ReconciliationService:
     def list(
         self,
         filters: ReconciliationFilter,
+        tenant_id: uuid.UUID,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[ReconciliationRecord], int]:
         offset = (page - 1) * page_size
-        return self.recon_repo.filter_paginated(filters, limit=page_size, offset=offset)
+        return self.recon_repo.filter_paginated(
+            filters, tenant_id=tenant_id, limit=page_size, offset=offset
+        )
 
-    def get_for_invoice(self, invoice_id: uuid.UUID) -> list[ReconciliationRecord]:
-        return self.recon_repo.get_by_invoice(invoice_id)
+    def get_for_invoice(
+        self, invoice_id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> list[ReconciliationRecord]:
+        return self.recon_repo.get_by_invoice(invoice_id, tenant_id)
 
     # ── Private helpers ────────────────────────────────────────────────────
 
