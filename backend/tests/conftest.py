@@ -49,6 +49,16 @@ def _import_models():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Rate-limit state is process-global; reset it so login-heavy tests don't
+    bleed counts into each other and trip the limiter."""
+    from app.core.limiter import limiter
+
+    limiter.reset()
+    yield
+
+
 @pytest.fixture()
 def db(_import_models):
     """Per-test database. Tables are created and dropped each test so an

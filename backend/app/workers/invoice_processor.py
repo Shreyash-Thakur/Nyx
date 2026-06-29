@@ -41,11 +41,7 @@ def process_invoice(invoice_id: str, job_id: str) -> dict:
 
         logger.info("ocr_started", invoice_id=invoice_id, attempt=job.attempt_count)
 
-        import asyncio
-
-        pdf_bytes = asyncio.get_event_loop().run_until_complete(
-            _storage_service.read(invoice.storage_path)
-        )
+        pdf_bytes = _storage_service.read_sync(invoice.storage_path)
 
         extracted = _ocr_service.extract_from_pdf(pdf_bytes)
 

@@ -82,14 +82,28 @@ class StorageService:
 
     async def read(self, storage_path: str) -> bytes:
         if storage_path.startswith("s3://"):
-            return await self._read_s3(storage_path)
+            return self._read_s3_sync(storage_path)
         full_path = Path(settings.UPLOAD_DIR) / storage_path
         if not full_path.exists():
             raise StorageError(f"File not found: {storage_path}")
         async with aiofiles.open(full_path, "rb") as f:
             return await f.read()
 
-    async def _read_s3(self, s3_uri: str) -> bytes:
+    def read_sync(self, storage_path: str) -> bytes:
+        """Synchronous read for worker / queue contexts.
+
+        Workers are synchronous (and the inline-queue path executes inside the
+        request's running event loop), so they must not drive an event loop to
+        read a file. boto3 is synchronous anyway and local reads are plain I/O.
+        """
+        if storage_path.startswith("s3://"):
+            return self._read_s3_sync(storage_path)
+        full_path = Path(settings.UPLOAD_DIR) / storage_path
+        if not full_path.exists():
+            raise StorageError(f"File not found: {storage_path}")
+        return full_path.read_bytes()
+
+    def _read_s3_sync(self, s3_uri: str) -> bytes:
         import boto3
 
         parts = s3_uri[5:].split("/", 1)

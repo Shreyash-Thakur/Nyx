@@ -43,6 +43,39 @@ class TestInvoiceUpload:
         assert resp.status_code == 401
 
 
+class TestInlinePipelineStatus:
+    def test_status_not_clobbered_after_inline_processing(
+        self, client, admin_user, auth_headers, db, mocker
+    ):
+        """BUG-4: in inline mode the worker advances the invoice to EXTRACTED
+        synchronously during enqueue; upload() must not then overwrite it with
+        QUEUED."""
+        from app.models.invoice import Invoice, InvoiceStatus
+
+        mocker.patch(
+            "app.services.invoice_service.StorageService.save",
+            return_value=("invoices/2026/06/x/t.pdf", "deadbeefchecksum"),
+        )
+
+        def fake_enqueue(invoice_id, job_id):
+            inv = db.get(Invoice, uuid.UUID(invoice_id))
+            inv.status = InvoiceStatus.EXTRACTED
+            db.commit()
+            return f"inline-{job_id}"
+
+        mocker.patch(
+            "app.services.invoice_service.enqueue_ocr_job", side_effect=fake_enqueue
+        )
+
+        resp = client.post(
+            "/api/v1/invoices",
+            files={"file": ("t.pdf", io.BytesIO(SAMPLE_PDF), "application/pdf")},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 202
+        assert resp.json()["status"] == "extracted"
+
+
 class TestInvoiceList:
     def test_list_empty(self, client, admin_user, auth_headers):
         resp = client.get("/api/v1/invoices", headers=auth_headers)

@@ -84,15 +84,23 @@ class InvoiceService:
             invoice_id=invoice.id,
             extra_data={"size_bytes": len(content), "checksum": checksum},
         )
+        # Mark queued and commit BEFORE dispatch so the job row is visible to the
+        # worker. In inline mode the job runs synchronously during dispatch and
+        # advances the invoice itself, so we must not write status afterwards.
+        invoice.status = InvoiceStatus.QUEUED
         self.db.commit()
 
-        # Dispatch to RQ after commit so the job row is visible to worker
         rq_id = enqueue_ocr_job(str(invoice.id), str(job.id))
         if rq_id:
-            job.rq_job_id = rq_id
-            invoice.status = InvoiceStatus.QUEUED
+            # Targeted column update: never clobber fields the (inline) worker
+            # may have written to the same job row on another session.
+            self.db.query(ProcessingJob).filter(ProcessingJob.id == job.id).update(
+                {ProcessingJob.rq_job_id: rq_id}
+            )
             self.db.commit()
 
+        # Reflect whatever state the inline worker advanced the invoice to.
+        self.db.refresh(invoice)
         logger.info("invoice_uploaded", invoice_id=str(invoice.id), filename=invoice.original_filename)
         return invoice
 

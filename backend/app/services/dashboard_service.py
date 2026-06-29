@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.models.processing_job import JobStatus, ProcessingJob
 from app.models.reconciliation import ReconciliationRecord
@@ -73,15 +74,20 @@ class DashboardService:
             )
         ) or 0
 
+        # Duration in seconds, computed portably. SQLite has no EXTRACT and no
+        # interval arithmetic, so use julianday(); Postgres uses extract(epoch).
+        if settings.is_sqlite:
+            duration_seconds = (
+                func.julianday(ProcessingJob.completed_at)
+                - func.julianday(ProcessingJob.started_at)
+            ) * 86400.0
+        else:
+            duration_seconds = func.extract(
+                "epoch", ProcessingJob.completed_at - ProcessingJob.started_at
+            )
+
         avg_seconds = self.db.scalar(
-            select(
-                func.avg(
-                    func.extract(
-                        "epoch",
-                        ProcessingJob.completed_at - ProcessingJob.started_at,
-                    )
-                )
-            ).where(
+            select(func.avg(duration_seconds)).where(
                 ProcessingJob.status == JobStatus.COMPLETED,
                 ProcessingJob.started_at.isnot(None),
                 ProcessingJob.completed_at.isnot(None),

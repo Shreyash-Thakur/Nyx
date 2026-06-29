@@ -1,7 +1,10 @@
 """RQ job: automatic reconciliation triggered after OCR extraction."""
 import uuid
 
+from sqlalchemy.orm import Session
+
 from app.core.logging import configure_logging, get_logger
+from app.core.system import ensure_system_user
 from app.database import SessionLocal
 from app.models.invoice import InvoiceStatus
 from app.repositories.invoice_repository import InvoiceRepository
@@ -10,9 +13,16 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-def auto_reconcile(invoice_id: str) -> dict:
+def auto_reconcile(invoice_id: str, db: Session | None = None) -> dict:
+    """Reconcile an invoice on behalf of the system principal.
+
+    ``db`` is injectable so the job logic can be tested against a session;
+    in production it is omitted and the worker owns its own session.
+    """
     inv_uuid = uuid.UUID(invoice_id)
-    db = SessionLocal()
+    own_session = db is None
+    if db is None:
+        db = SessionLocal()
     try:
         invoice_repo = InvoiceRepository(db)
         invoice = invoice_repo.get_or_raise(inv_uuid)
@@ -25,15 +35,11 @@ def auto_reconcile(invoice_id: str) -> dict:
             )
             return {"status": "skipped", "reason": invoice.status.value}
 
-        # System user is represented by None (system action)
-        from app.services.reconciliation_service import ReconciliationService
         from app.schemas.reconciliation import ReconciliationRequest
+        from app.services.reconciliation_service import ReconciliationService
 
+        system_user = ensure_system_user(db)
         svc = ReconciliationService(db)
-
-        class _SystemUser:
-            id = uuid.UUID("00000000-0000-0000-0000-000000000001")
-            role = "system"
 
         record = svc.reconcile(
             ReconciliationRequest(
@@ -41,7 +47,7 @@ def auto_reconcile(invoice_id: str) -> dict:
                 reference_document_type="auto",
                 notes="Automatically triggered after OCR extraction",
             ),
-            _SystemUser(),  # type: ignore[arg-type]
+            system_user,
         )
 
         logger.info(
@@ -56,4 +62,5 @@ def auto_reconcile(invoice_id: str) -> dict:
         logger.error("auto_reconcile_failed", invoice_id=invoice_id, error=str(exc))
         raise
     finally:
-        db.close()
+        if own_session:
+            db.close()
