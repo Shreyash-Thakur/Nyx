@@ -42,6 +42,22 @@ def require_roles(*roles: UserRole):
     return checker
 
 
+def require(permission: str):
+    """Route dependency that enforces a single permission via can().
+
+    Use as ``dependencies=[Depends(require(Permission.INVOICE_WRITE))]`` so it
+    gates the route without altering the handler signature.
+    """
+    from app.core.rbac import can
+
+    def checker(user: Annotated[User, Depends(get_current_user)]) -> User:
+        if not can(user, permission):
+            raise forbidden(f"Missing permission: {permission}")
+        return user
+
+    return checker
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 AdminUser = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
 DBSession = Annotated[Session, Depends(get_db)]

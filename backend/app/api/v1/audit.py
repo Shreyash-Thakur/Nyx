@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import CurrentUser, DBSession
+from app.core.rbac import Permission
+from app.dependencies import CurrentUser, DBSession, require
 from app.models.audit_log import AuditEventType, AuditLog
 from app.repositories.audit_repository import AuditRepository
 from app.schemas.common import PaginatedResponse
@@ -19,7 +20,9 @@ class AuditLogResponse(BaseModel):
     user_id: uuid.UUID | None
     invoice_id: uuid.UUID | None
     description: str
-    metadata: dict | None
+    # Maps to AuditLog.extra_data (the column was renamed from `metadata`);
+    # exposed to clients as `metadata` via an alias.
+    extra_data: dict | None = None
     ip_address: str | None
     created_at: datetime
 
@@ -29,7 +32,11 @@ class AuditLogResponse(BaseModel):
 router = APIRouter(prefix="/audit", tags=["Audit Logs"])
 
 
-@router.get("", response_model=PaginatedResponse[AuditLogResponse])
+@router.get(
+    "",
+    response_model=PaginatedResponse[AuditLogResponse],
+    dependencies=[Depends(require(Permission.AUDIT_READ))],
+)
 def list_audit_logs(
     current_user: CurrentUser,
     db: DBSession,

@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.core.exceptions import NotFoundError, ValidationError, bad_request, not_found
-from app.dependencies import CurrentUser, DBSession
+from app.core.rbac import Permission
+from app.dependencies import CurrentUser, DBSession, require
 from app.models.reconciliation import DiscrepancyType, ReconciliationStatus
 from app.schemas.common import PaginatedResponse
 from app.schemas.reconciliation import (
@@ -20,7 +21,12 @@ import math
 router = APIRouter(prefix="/reconciliation", tags=["Reconciliation"])
 
 
-@router.post("", response_model=ReconciliationRecordResponse, status_code=201)
+@router.post(
+    "",
+    response_model=ReconciliationRecordResponse,
+    status_code=201,
+    dependencies=[Depends(require(Permission.RECONCILIATION_WRITE))],
+)
 def reconcile_invoice(
     payload: ReconciliationRequest,
     current_user: CurrentUser,
@@ -34,7 +40,11 @@ def reconcile_invoice(
     return record
 
 
-@router.get("", response_model=PaginatedResponse[ReconciliationRecordResponse])
+@router.get(
+    "",
+    response_model=PaginatedResponse[ReconciliationRecordResponse],
+    dependencies=[Depends(require(Permission.RECONCILIATION_READ))],
+)
 def list_reconciliation_records(
     current_user: CurrentUser,
     db: DBSession,
@@ -62,7 +72,11 @@ def list_reconciliation_records(
     )
 
 
-@router.get("/invoice/{invoice_id}", response_model=list[ReconciliationRecordResponse])
+@router.get(
+    "/invoice/{invoice_id}",
+    response_model=list[ReconciliationRecordResponse],
+    dependencies=[Depends(require(Permission.RECONCILIATION_READ))],
+)
 def get_reconciliation_for_invoice(
     invoice_id: uuid.UUID,
     current_user: CurrentUser,
@@ -72,7 +86,11 @@ def get_reconciliation_for_invoice(
     return ReconciliationService(db).get_for_invoice(invoice_id)
 
 
-@router.post("/{record_id}/resolve", response_model=ReconciliationRecordResponse)
+@router.post(
+    "/{record_id}/resolve",
+    response_model=ReconciliationRecordResponse,
+    dependencies=[Depends(require(Permission.RECONCILIATION_WRITE))],
+)
 def resolve_discrepancy(
     record_id: uuid.UUID,
     payload: ReconciliationResolveRequest,

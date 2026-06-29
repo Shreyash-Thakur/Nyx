@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import (
@@ -13,7 +13,8 @@ from app.core.exceptions import (
     conflict,
     not_found,
 )
-from app.dependencies import CurrentUser, DBSession
+from app.core.rbac import Permission
+from app.dependencies import CurrentUser, DBSession, require
 from app.models.invoice import InvoiceStatus, PaymentStatus
 from app.schemas.common import PaginatedResponse
 from app.schemas.invoice import (
@@ -28,7 +29,12 @@ from app.services.invoice_service import InvoiceService
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
 
-@router.post("", response_model=InvoiceResponse, status_code=202)
+@router.post(
+    "",
+    response_model=InvoiceResponse,
+    status_code=202,
+    dependencies=[Depends(require(Permission.INVOICE_WRITE))],
+)
 async def upload_invoice(
     file: UploadFile = File(...),
     current_user: CurrentUser = ...,
@@ -44,7 +50,11 @@ async def upload_invoice(
     return invoice
 
 
-@router.get("", response_model=PaginatedResponse[InvoiceResponse])
+@router.get(
+    "",
+    response_model=PaginatedResponse[InvoiceResponse],
+    dependencies=[Depends(require(Permission.INVOICE_READ))],
+)
 def list_invoices(
     current_user: CurrentUser,
     db: DBSession,
@@ -92,7 +102,11 @@ def list_invoices(
     )
 
 
-@router.get("/{invoice_id}", response_model=InvoiceDetailResponse)
+@router.get(
+    "/{invoice_id}",
+    response_model=InvoiceDetailResponse,
+    dependencies=[Depends(require(Permission.INVOICE_READ))],
+)
 def get_invoice(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """Fetch a single invoice with line items."""
     try:
@@ -105,7 +119,11 @@ def get_invoice(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession)
     return data
 
 
-@router.patch("/{invoice_id}", response_model=InvoiceResponse)
+@router.patch(
+    "/{invoice_id}",
+    response_model=InvoiceResponse,
+    dependencies=[Depends(require(Permission.INVOICE_WRITE))],
+)
 def update_invoice(
     invoice_id: uuid.UUID,
     payload: InvoiceUpdate,
@@ -120,7 +138,11 @@ def update_invoice(
     return invoice
 
 
-@router.get("/{invoice_id}/jobs", response_model=list[JobStatusResponse])
+@router.get(
+    "/{invoice_id}/jobs",
+    response_model=list[JobStatusResponse],
+    dependencies=[Depends(require(Permission.INVOICE_READ))],
+)
 def get_invoice_jobs(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """Get all processing jobs for an invoice."""
     from sqlalchemy import select

@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.dependencies import CurrentUser, DBSession
+from app.core.rbac import Permission
+from app.dependencies import CurrentUser, DBSession, require
 from app.schemas.dashboard import (
     AnalyticsTrend,
     DashboardOverview,
@@ -10,7 +11,11 @@ from app.schemas.dashboard import (
 )
 from app.services.dashboard_service import DashboardService
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["Dashboard"],
+    dependencies=[Depends(require(Permission.DASHBOARD_READ))],
+)
 
 
 @router.get("/overview", response_model=DashboardOverview)

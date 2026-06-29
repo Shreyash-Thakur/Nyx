@@ -1,9 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.core.exceptions import ConflictError, NotFoundError, conflict, not_found
-from app.dependencies import CurrentUser, DBSession
+from app.core.rbac import Permission
+from app.dependencies import CurrentUser, DBSession, require
 from app.schemas.common import PaginatedResponse
 from app.schemas.vendor import VendorCreate, VendorResponse, VendorUpdate
 from app.services.vendor_service import VendorService
@@ -13,7 +14,12 @@ import math
 router = APIRouter(prefix="/vendors", tags=["Vendors"])
 
 
-@router.post("", response_model=VendorResponse, status_code=201)
+@router.post(
+    "",
+    response_model=VendorResponse,
+    status_code=201,
+    dependencies=[Depends(require(Permission.VENDOR_WRITE))],
+)
 def create_vendor(payload: VendorCreate, current_user: CurrentUser, db: DBSession):
     """Create a new vendor."""
     try:
@@ -23,7 +29,11 @@ def create_vendor(payload: VendorCreate, current_user: CurrentUser, db: DBSessio
     return vendor
 
 
-@router.get("", response_model=PaginatedResponse[VendorResponse])
+@router.get(
+    "",
+    response_model=PaginatedResponse[VendorResponse],
+    dependencies=[Depends(require(Permission.VENDOR_READ))],
+)
 def list_vendors(
     current_user: CurrentUser,
     db: DBSession,
@@ -42,7 +52,11 @@ def list_vendors(
     )
 
 
-@router.get("/{vendor_id}", response_model=VendorResponse)
+@router.get(
+    "/{vendor_id}",
+    response_model=VendorResponse,
+    dependencies=[Depends(require(Permission.VENDOR_READ))],
+)
 def get_vendor(vendor_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """Fetch a single vendor."""
     try:
@@ -51,7 +65,11 @@ def get_vendor(vendor_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
         raise not_found("Vendor", str(vendor_id))
 
 
-@router.patch("/{vendor_id}", response_model=VendorResponse)
+@router.patch(
+    "/{vendor_id}",
+    response_model=VendorResponse,
+    dependencies=[Depends(require(Permission.VENDOR_WRITE))],
+)
 def update_vendor(
     vendor_id: uuid.UUID,
     payload: VendorUpdate,
