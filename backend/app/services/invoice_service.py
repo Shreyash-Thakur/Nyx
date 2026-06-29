@@ -5,6 +5,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.events import DomainEvent, event_bus
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.models.audit_log import AuditEventType
@@ -85,6 +86,17 @@ class InvoiceService:
             user_id=current_user.id,
             invoice_id=invoice.id,
             extra_data={"size_bytes": len(content), "checksum": checksum},
+        )
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="invoice.uploaded",
+                aggregate_type="invoice",
+                aggregate_id=invoice.id,
+                actor_id=current_user.id,
+                tenant_id=invoice.tenant_id,
+                payload={"filename": invoice.original_filename, "checksum": checksum},
+            ),
         )
         # Mark queued and commit BEFORE dispatch so the job row is visible to the
         # worker. In inline mode the job runs synchronously during dispatch and
@@ -191,6 +203,16 @@ class InvoiceService:
             f"OCR extraction completed for invoice {invoice_id}",
             invoice_id=invoice.id,
             extra_data={"confidence": extracted.get("ocr_confidence")},
+        )
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="invoice.extracted",
+                aggregate_type="invoice",
+                aggregate_id=invoice.id,
+                tenant_id=invoice.tenant_id,
+                payload={"confidence": extracted.get("ocr_confidence")},
+            ),
         )
         self.db.commit()
         return invoice

@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.events import DomainEvent, event_bus
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.models.audit_log import AuditEventType
@@ -98,6 +99,17 @@ class ReconciliationService:
                 "confidence": confidence,
                 "discrepancy": str(discrepancy_amount) if discrepancy_amount else None,
             },
+        )
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="reconciliation.completed",
+                aggregate_type="invoice",
+                aggregate_id=invoice.id,
+                actor_id=current_user.id,
+                tenant_id=invoice.tenant_id,
+                payload={"status": status.value, "confidence": confidence},
+            ),
         )
         self.db.commit()
         return rec

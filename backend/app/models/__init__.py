@@ -1,4 +1,5 @@
 from app.models.audit_log import AuditLog, AuditEventType
+from app.models.event import Event
 from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.models.invoice_item import InvoiceItem
 from app.models.processing_job import ProcessingJob, JobStatus, JobType
@@ -9,6 +10,7 @@ from app.models.vendor import Vendor
 
 __all__ = [
     "Tenant",
+    "Event",
     "AuditLog",
     "AuditEventType",
     "Invoice",
