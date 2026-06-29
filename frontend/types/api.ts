@@ -93,6 +93,17 @@ export interface DashboardOverview {
   recent_trends: AnalyticsTrend[]; total_processed_amount: string; pending_payment_amount: string;
 }
 
+// ─── Activity / Events ──────────────────────────────────────────
+export interface ActivityEvent {
+  id: string;
+  name: string;
+  aggregate_type: string | null;
+  aggregate_id: string | null;
+  actor_id: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
 // ─── Audit ──────────────────────────────────────────────────────
 export interface AuditLog {
   id: string; event_type: string; user_id: string | null; invoice_id: string | null;

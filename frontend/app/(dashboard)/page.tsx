@@ -5,20 +5,28 @@ import { LiveQueue } from "@/components/dashboard/LiveQueue"
 import { AreaChart } from "@/components/charts/AreaChart"
 import { DonutChart } from "@/components/charts/DonutChart"
 import { useDashboardOverview, useTrends } from "@/hooks/useDashboard"
+import { useActivity } from "@/hooks/useActivity"
 import { fmtUsd, fmtNum, relativeTime } from "@/lib/utils"
-
-// Static activity feed (would be websocket in full impl)
-const ACTIVITY = [
-  { id: 1, who: "System", what: "auto-matched", detail: "INV-29478 → PO-1124", ts: "2s ago", type: "match", amount: "$12,840" },
-  { id: 2, who: "Priya M.", what: "approved", detail: "Batch #418 (32 invoices)", ts: "14s ago", type: "approve" },
-  { id: 3, who: "System", what: "flagged exception", detail: "INV-29476 — amount delta $48.20", ts: "47s ago", type: "exception" },
-  { id: 4, who: "Marcus T.", what: "linked vendor", detail: "Stripe Atlas → MERCHANT_847", ts: "1m ago", type: "link" },
-  { id: 5, who: "System", what: "OCR completed", detail: "12 documents in batch #419", ts: "1m ago", type: "ocr" },
-]
 
 const TYPE_COLOR: Record<string, string> = {
   match: "var(--success)", approve: "var(--accent)", exception: "var(--danger)",
   link: "var(--c6)", ocr: "var(--info)",
+}
+
+// Maps durable domain-event names to a human label + visual type.
+const EVENT_META: Record<string, { label: string; type: string }> = {
+  "invoice.uploaded": { label: "uploaded an invoice", type: "ocr" },
+  "invoice.extracted": { label: "OCR extraction completed", type: "ocr" },
+  "reconciliation.completed": { label: "reconciliation completed", type: "match" },
+}
+
+function eventDetail(name: string, payload: Record<string, unknown> | null): string {
+  const p = payload ?? {}
+  if (name === "invoice.uploaded") return String(p.filename ?? "")
+  if (name === "invoice.extracted")
+    return p.confidence != null ? `confidence ${(Number(p.confidence) * 100).toFixed(0)}%` : ""
+  if (name === "reconciliation.completed") return String(p.status ?? "")
+  return ""
 }
 
 const VENDOR_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)", "var(--c7)"]
@@ -26,6 +34,19 @@ const VENDOR_COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(
 export default function DashboardPage() {
   const { data: overview, isLoading } = useDashboardOverview()
   const { data: trends } = useTrends()
+  const { data: activity } = useActivity()
+
+  const activityItems = (activity ?? []).map((e) => {
+    const meta = EVENT_META[e.name] ?? { label: e.name, type: "ocr" }
+    return {
+      id: e.id,
+      who: e.actor_id ? "User" : "System",
+      what: meta.label,
+      detail: eventDetail(e.name, e.payload),
+      ts: relativeTime(e.created_at),
+      type: meta.type,
+    }
+  })
 
   const inv = overview?.invoice_summary
   const disc = overview?.discrepancy_summary
@@ -144,7 +165,12 @@ export default function DashboardPage() {
             </div>
           </div>
           <div style={{ overflow: "auto", maxHeight: 280 }}>
-            {ACTIVITY.map((ev, i) => (
+            {activityItems.length === 0 && (
+              <div style={{ padding: "16px", fontSize: 12, color: "var(--text-3)" }}>
+                No recent activity yet.
+              </div>
+            )}
+            {activityItems.map((ev, i) => (
               <motion.div key={ev.id} initial={{ opacity: 0, x: 4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
                 style={{ padding: "10px 16px", borderBottom: "1px solid var(--divider)" }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
