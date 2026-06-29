@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import UploadFile
@@ -11,7 +12,7 @@ from app.core.logging import get_logger
 from app.models.audit_log import AuditEventType
 from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.models.invoice_item import InvoiceItem
-from app.models.processing_job import JobType, ProcessingJob
+from app.models.processing_job import JobStatus, JobType, ProcessingJob
 from app.models.user import User
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.invoice_repository import InvoiceRepository
@@ -193,8 +194,7 @@ class InvoiceService:
 
         invoice.status = InvoiceStatus.EXTRACTED
         if job:
-            from datetime import datetime, timezone
-            job.status = __import__("app.models.processing_job", fromlist=["JobStatus"]).JobStatus.COMPLETED
+            job.status = JobStatus.COMPLETED
             job.completed_at = datetime.now(timezone.utc)
             job.result = {"fields_extracted": len(extracted)}
 
@@ -224,8 +224,6 @@ class InvoiceService:
             invoice.status = InvoiceStatus.FAILED
             invoice.extraction_notes = error
         if job:
-            from datetime import datetime, timezone
-            from app.models.processing_job import JobStatus
             job.status = JobStatus.FAILED
             job.error_message = error
             job.completed_at = datetime.now(timezone.utc)
