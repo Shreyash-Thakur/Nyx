@@ -7,10 +7,12 @@ from app.models.reconciliation import ReconciliationRecord, ReconciliationStatus
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 from app.models.vendor import Vendor
+from app.models.workflow import WorkflowInstance
 
 __all__ = [
     "Tenant",
     "Event",
+    "WorkflowInstance",
     "AuditLog",
     "AuditEventType",
     "Invoice",
