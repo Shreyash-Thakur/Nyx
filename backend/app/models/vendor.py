@@ -4,12 +4,13 @@ from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.invoice import Invoice
 
 
-class Vendor(BaseModel):
+class Vendor(TenantMixin, BaseModel):
     __tablename__ = "vendors"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

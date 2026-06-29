@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_types import GUID
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.invoice import Invoice
@@ -42,7 +43,7 @@ class AuditEventType(str, enum.Enum):
     VENDOR_UPDATED = "vendor_updated"
 
 
-class AuditLog(BaseModel):
+class AuditLog(TenantMixin, BaseModel):
     __tablename__ = "audit_logs"
 
     event_type: Mapped[AuditEventType] = mapped_column(

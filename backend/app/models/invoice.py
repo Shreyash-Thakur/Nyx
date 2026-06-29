@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_types import GUID
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
@@ -38,7 +39,7 @@ class PaymentStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class Invoice(BaseModel):
+class Invoice(TenantMixin, BaseModel):
     __tablename__ = "invoices"
 
     # File metadata

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_types import GUID
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 from typing import TYPE_CHECKING
 
@@ -30,7 +31,7 @@ class JobType(str, enum.Enum):
     RECONCILIATION = "reconciliation"
 
 
-class ProcessingJob(BaseModel):
+class ProcessingJob(TenantMixin, BaseModel):
     __tablename__ = "processing_jobs"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(

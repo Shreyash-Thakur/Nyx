@@ -3,10 +3,12 @@ from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.models.invoice_item import InvoiceItem
 from app.models.processing_job import ProcessingJob, JobStatus, JobType
 from app.models.reconciliation import ReconciliationRecord, ReconciliationStatus, DiscrepancyType
+from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 from app.models.vendor import Vendor
 
 __all__ = [
+    "Tenant",
     "AuditLog",
     "AuditEventType",
     "Invoice",

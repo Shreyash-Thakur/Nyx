@@ -181,5 +181,7 @@ class ReconciliationService:
         )
 
     def _create_record(self, invoice: Invoice, **kwargs) -> ReconciliationRecord:
-        record = ReconciliationRecord(invoice_id=invoice.id, **kwargs)
+        record = ReconciliationRecord(
+            invoice_id=invoice.id, tenant_id=invoice.tenant_id, **kwargs
+        )
         return self.recon_repo.save(record)

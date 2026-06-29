@@ -5,6 +5,7 @@ from sqlalchemy import Boolean, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
@@ -17,7 +18,7 @@ class UserRole(str, enum.Enum):
     VIEWER = "viewer"
 
 
-class User(BaseModel):
+class User(TenantMixin, BaseModel):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)

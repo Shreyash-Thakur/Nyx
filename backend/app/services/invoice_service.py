@@ -59,6 +59,7 @@ class InvoiceService:
 
         invoice = Invoice(
             id=invoice_id,
+            tenant_id=current_user.tenant_id,
             original_filename=file.filename or "invoice.pdf",
             storage_path=storage_path,
             file_size_bytes=len(content),
@@ -71,6 +72,7 @@ class InvoiceService:
 
         job = ProcessingJob(
             invoice_id=invoice.id,
+            tenant_id=invoice.tenant_id,
             job_type=JobType.OCR_EXTRACTION,
         )
         self.db.add(job)
@@ -170,6 +172,7 @@ class InvoiceService:
         for item_data in extracted.get("line_items", []):
             item = InvoiceItem(
                 invoice_id=invoice.id,
+                tenant_id=invoice.tenant_id,
                 description=item_data.get("description", ""),
                 line_total=Decimal(item_data["line_total"]) if item_data.get("line_total") else None,
                 sequence_number=item_data.get("sequence_number", 0),

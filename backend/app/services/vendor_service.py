@@ -24,6 +24,7 @@ class VendorService:
                 raise ConflictError(f"Vendor with GST {payload.gst_number} already exists")
 
         vendor = Vendor(
+            tenant_id=current_user.tenant_id,
             name=payload.name,
             normalized_name=payload.name.strip().lower(),
             gst_number=payload.gst_number,

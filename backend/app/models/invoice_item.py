@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_types import GUID
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     from app.models.invoice import Invoice
 
 
-class InvoiceItem(BaseModel):
+class InvoiceItem(TenantMixin, BaseModel):
     __tablename__ = "invoice_items"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(

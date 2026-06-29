@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_types import GUID
 from app.models.base import BaseModel
+from app.models.tenant import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.invoice import Invoice
@@ -33,7 +34,7 @@ class DiscrepancyType(str, enum.Enum):
     TAX_MISMATCH = "tax_mismatch"
 
 
-class ReconciliationRecord(BaseModel):
+class ReconciliationRecord(TenantMixin, BaseModel):
     __tablename__ = "reconciliation_records"
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(
