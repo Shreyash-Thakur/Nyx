@@ -2,6 +2,31 @@
 
 This document is deliberately honest. Every architecture has debt — pretending otherwise is the first interview tell that betrays inexperience. We list what we owe, what could bite us, and what we'd do about it.
 
+## Resolved in the foundation cycle (2026-06-30)
+
+The first implementation cycle paid down several debts and built three core-layer
+foundations. See `STATUS.md` for the full picture.
+
+- **TD-1 (coarse roles) → addressed.** A permission layer (`app/core/rbac.py`,
+  `can()` / `require()`) now gates every route; the role enum maps to permission
+  sets. DB-backed dynamic roles remain future work.
+- **TD-2 (static activity feed) → resolved.** The dashboard panel renders live
+  domain events from `GET /api/v1/activity` over the durable event log.
+- **TD-4 (`.env.example`) and TD-5 (CI) → already present** in the tree
+  (`backend/.env.example`, `.github/workflows/ci.yml`).
+- **TD-6 (legacy `LedgerFlow.html`) → gone** from the tree.
+- **TD-7 (sparse tests) → much improved.** Backend tests 20 → 49, now covering
+  storage, workers, dashboard, tenancy, events, RBAC, audit, activity, workflow.
+- **New foundations built:** tenant-aware schema (ADR-0008), in-process event bus
+  + durable log (ADR-0002), permission RBAC (ADR-0004), and a right-sized
+  workflow engine with durable instances (ADR-0003).
+- **Four pipeline bugs fixed** (inline OCR event-loop crash, auto-reconcile FK,
+  SQLite dashboard SQL, inline status clobber) plus an audit-serialization bug.
+
+Still open from the list below: TD-3 (OCR/human-verify), TD-8 (auth hardening),
+TD-9 (S3 smoke test). New debt this cycle: audit writes directly *and* emits
+events (converge onto the bus); tenant **reads** not yet uniformly scoped.
+
 ## Existing technical debt (pre-redesign)
 
 These are debts the current codebase already carries that the redesign must either pay down or consciously defer.
