@@ -119,8 +119,8 @@ class InvoiceService:
         logger.info("invoice_uploaded", invoice_id=str(invoice.id), filename=invoice.original_filename)
         return invoice
 
-    def get_detail(self, invoice_id: uuid.UUID) -> Invoice:
-        invoice = self.invoice_repo.get_with_items(invoice_id)
+    def get_detail(self, invoice_id: uuid.UUID, tenant_id: uuid.UUID) -> Invoice:
+        invoice = self.invoice_repo.get_with_items(invoice_id, tenant_id)
         if not invoice:
             raise NotFoundError("Invoice", str(invoice_id))
         return invoice
@@ -128,11 +128,14 @@ class InvoiceService:
     def list(
         self,
         filters: InvoiceFilter,
+        tenant_id: uuid.UUID,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[Invoice], int]:
         offset = (page - 1) * page_size
-        return self.invoice_repo.filter_paginated(filters, limit=page_size, offset=offset)
+        return self.invoice_repo.filter_paginated(
+            filters, tenant_id=tenant_id, limit=page_size, offset=offset
+        )
 
     def update(self, invoice_id: uuid.UUID, payload: InvoiceUpdate, current_user: User) -> Invoice:
         invoice = self.invoice_repo.get_or_raise(invoice_id)

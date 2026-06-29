@@ -82,7 +82,9 @@ def list_invoices(
         amount_max=amount_max,
         search=search,
     )
-    items, total = InvoiceService(db).list(filters, page=page, page_size=page_size)
+    items, total = InvoiceService(db).list(
+        filters, current_user.tenant_id, page=page, page_size=page_size
+    )
 
     # Enrich with vendor_name
     enriched = []
@@ -110,7 +112,7 @@ def list_invoices(
 def get_invoice(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """Fetch a single invoice with line items."""
     try:
-        invoice = InvoiceService(db).get_detail(invoice_id)
+        invoice = InvoiceService(db).get_detail(invoice_id, current_user.tenant_id)
     except NotFoundError:
         raise not_found("Invoice", str(invoice_id))
     data = InvoiceDetailResponse.model_validate(invoice)

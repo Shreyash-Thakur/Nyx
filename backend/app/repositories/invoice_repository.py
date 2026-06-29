@@ -13,11 +13,11 @@ from app.schemas.invoice import InvoiceFilter
 class InvoiceRepository(BaseRepository[Invoice]):
     model = Invoice
 
-    def get_with_items(self, id: uuid.UUID) -> Invoice | None:
+    def get_with_items(self, id: uuid.UUID, tenant_id: uuid.UUID) -> Invoice | None:
         stmt = (
             select(Invoice)
             .options(joinedload(Invoice.line_items), joinedload(Invoice.vendor))
-            .where(Invoice.id == id)
+            .where(Invoice.id == id, Invoice.tenant_id == tenant_id)
         )
         return self.db.scalar(stmt)
 
@@ -53,10 +53,11 @@ class InvoiceRepository(BaseRepository[Invoice]):
         self,
         filters: InvoiceFilter,
         *,
+        tenant_id: uuid.UUID,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Invoice], int]:
-        conditions = []
+        conditions = [Invoice.tenant_id == tenant_id]
 
         if filters.status:
             conditions.append(Invoice.status == filters.status)

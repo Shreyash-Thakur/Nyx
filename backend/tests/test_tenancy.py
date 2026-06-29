@@ -30,6 +30,30 @@ def test_ensure_default_tenant_is_idempotent(db):
     assert db.query(Tenant).filter(Tenant.id == DEFAULT_TENANT_ID).count() == 1
 
 
+def test_invoice_reads_are_tenant_scoped(client, db, admin_user, auth_headers):
+    """A user must not see or fetch invoices from another tenant."""
+    mine = Invoice(
+        id=uuid.uuid4(), original_filename="mine.pdf", storage_path="a",
+        content_type="application/pdf", uploaded_by=admin_user.id,
+        tenant_id=admin_user.tenant_id,
+    )
+    theirs = Invoice(
+        id=uuid.uuid4(), original_filename="theirs.pdf", storage_path="b",
+        content_type="application/pdf", uploaded_by=admin_user.id,
+        tenant_id=uuid.uuid4(),  # different tenant
+    )
+    db.add_all([mine, theirs])
+    db.commit()
+
+    listed = client.get("/api/v1/invoices", headers=auth_headers).json()
+    assert listed["total"] == 1  # only this tenant's invoice
+
+    # Fetching the other tenant's invoice by id is a 404, not a leak.
+    resp = client.get(f"/api/v1/invoices/{theirs.id}", headers=auth_headers)
+    assert resp.status_code == 404
+    assert client.get(f"/api/v1/invoices/{mine.id}", headers=auth_headers).status_code == 200
+
+
 def test_upload_stamps_uploader_tenant(db, mocker):
     other_tenant = uuid.uuid4()
     user = User(
