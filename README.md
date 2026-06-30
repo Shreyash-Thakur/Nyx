@@ -1,7 +1,7 @@
 # Nyx
 
 > Modular Internal Business Operations Platform for SMEs.
-> FastAPI + Next.js. SQLite for dev, PostgreSQL for prod. Docker optional.
+> FastAPI + Next.js. SQLite for dev, PostgreSQL for prod.
 
 [![Status](https://img.shields.io/badge/phase-stabilization-blue)](docs/architecture/11-roadmap.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](#)
@@ -10,7 +10,7 @@ Nyx is a configurable operations platform for 20–500 person companies. Account
 
 ---
 
-## Quick start (no Docker, no Postgres, no Redis)
+## Quick start (no Postgres, no Redis)
 
 Requirements:
 
@@ -42,7 +42,7 @@ You now have:
 - A SQLite database at `backend/nyx.db`
 - Background jobs running **inline** (no Redis required)
 
-That's it. No Docker, no external services, no `.env` editing needed for development.
+That's it. No external services, no `.env` editing needed for development.
 
 ---
 
@@ -78,7 +78,6 @@ npm run dev                        # http://localhost:3000
 | SQLite | ✅ default | ⚠️ not recommended | Built into Python; nothing to install |
 | PostgreSQL 16 | ❌ no | ✅ yes | Set `DATABASE_URL=postgresql://...` |
 | Redis | ❌ no | ✅ yes | Without it, OCR + reconciliation run inline in the request thread |
-| Docker | ❌ no | ❌ no | Compose files exist (`backend/docker-compose.yml`) but are optional |
 | Tesseract + Poppler | ❌ no¹ | ✅ if using OCR | Without these, uploads still succeed; OCR job fails gracefully |
 
 ¹ The API still runs, uploads still succeed, and reconciliation still works on already-extracted invoices. Only the OCR worker step needs Tesseract — when missing, the invoice ends up in `failed` state with a note, exactly as it would for any OCR error.
@@ -142,14 +141,7 @@ Nyx/
 
 ## Production deployment
 
-Production uses PostgreSQL + Redis + Docker. The Compose files at `backend/docker-compose.yml` and `backend/docker-compose.prod.yml` still work:
-
-```bash
-cd backend
-docker compose up --build
-```
-
-Or follow the platform-specific deployment notes in [`backend/README.md`](backend/README.md) (Render, Railway).
+Production uses PostgreSQL + Redis. Follow the platform-specific deployment notes in [`backend/README.md`](backend/README.md) (Render, Railway).
 
 ---
 

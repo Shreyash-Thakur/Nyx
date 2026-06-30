@@ -22,7 +22,7 @@ Inter-module communication is in-process via the event bus or via published serv
 ## Consequences
 
 **Positive:**
-- Local development is one `docker compose up`. No service mesh, no distributed tracing setup, no inter-service auth.
+- Local development is a single process (`uvicorn`) against SQLite. No service mesh, no distributed tracing setup, no inter-service auth.
 - Transactions are real ACID transactions. Event publish + DB commit happen atomically.
 - Refactoring across modules is a code change, not a coordinated multi-service deploy.
 - Interview narrative is sharper: we deliberately rejected microservices.

@@ -75,8 +75,8 @@ still contain illustrative numbers when the API has no data (see §4 TD-2b).
 ### Infrastructure
 
 SQLite + inline queue by default (zero external services); Postgres + Redis +
-RQ in production. Local filesystem or S3 storage. Docker compose dev + prod
-overlays. CI runs migrations + pytest on Postgres/Redis.
+RQ in production. Local filesystem or S3 storage. CI runs migrations + pytest
+on Postgres/Redis.
 
 ---
 

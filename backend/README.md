@@ -79,24 +79,6 @@ migration creates the right schema on either engine.
 
 ---
 
-## Docker (optional)
-
-```bash
-docker compose up --build
-```
-
-This still works and brings up Postgres + Redis + API + worker + RQ Dashboard +
-frontend. It is **not required**: the local-first path above is the supported
-default for development.
-
-For production, the overlay file:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
-
----
-
 ## API reference (summary)
 
 Full interactive docs at `/docs`. High-level surface:
@@ -142,6 +124,6 @@ TEST_DATABASE_URL=postgresql://nyx:nyx@localhost:5432/nyx_test pytest
 
 ### Deploy targets
 
-**Render:** create a Web Service from this repo with Dockerfile path `docker/Dockerfile`, add a Postgres add-on and a Redis add-on, configure env vars from `.env.example`, then add a Background Worker service using `docker/Dockerfile.worker` with `rq worker ocr reconciliation --url $REDIS_URL`.
+**Render:** create a Web Service from this repo with a Python runtime — build `pip install -r requirements.txt`, start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Add a Postgres add-on and a Redis add-on, configure env vars from `.env.example`, then add a Background Worker service running `rq worker ocr reconciliation --url $REDIS_URL`.
 
 **Railway:** `railway init && railway add postgresql && railway add redis && railway up`; add a second worker service in the same project.

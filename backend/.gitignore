@@ -34,9 +34,6 @@ uploads/
 *.log
 logs/
 
-# Docker
-.docker/
-
 # Test artifacts
 .pytest_cache/
 .coverage

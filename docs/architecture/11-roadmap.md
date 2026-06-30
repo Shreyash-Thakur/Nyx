@@ -155,7 +155,7 @@ That's it. Operations and Customer Service modules are stubbed (tables + minimal
 - Add a `make demo` target that seeds a tenant with realistic fixtures and stubs the connectors.
 - Frontend polish on the snapshot page, the audit log explorer, and the workflow definition viewer.
 - Write a "how to read this repo" guide for reviewers (`docs/walkthrough.md`).
-- Performance check: invoice upload to event-in-FI-aggregate < 2s p95 on local docker compose.
+- Performance check: invoice upload to event-in-FI-aggregate < 2s p95 on a local Postgres + Redis setup.
 
 **Exit criteria:**
 - ✅ All MVP demo paths run green in CI.

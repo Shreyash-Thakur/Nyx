@@ -120,11 +120,6 @@ backend/
 │       └── v1/
 │           └── router.py                # composes core + module routers
 │
-├── docker/
-│   ├── Dockerfile
-│   └── Dockerfile.worker
-├── docker-compose.yml
-├── docker-compose.prod.yml
 ├── tests/                               # cross-cutting integration tests
 ├── pytest.ini
 ├── requirements.txt
