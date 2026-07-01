@@ -23,6 +23,7 @@ class Permission:
     VENDOR_WRITE = "vendor:write"
     DASHBOARD_READ = "dashboard:read"
     AUDIT_READ = "audit:read"
+    NOTIFICATION_READ = "notification:read"
     USER_MANAGE = "user:manage"
     WORKFLOW_MANAGE = "workflow:manage"
     INVOICE_APPROVE = "invoice:approve"
@@ -42,6 +43,7 @@ _READ_PERMS = {
     Permission.VENDOR_READ,
     Permission.DASHBOARD_READ,
     Permission.AUDIT_READ,
+    Permission.NOTIFICATION_READ,
 }
 
 _OPERATE_PERMS = _READ_PERMS | {

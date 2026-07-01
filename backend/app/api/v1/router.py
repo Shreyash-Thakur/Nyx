@@ -6,6 +6,7 @@ from app.api.v1 import (
     auth,
     dashboard,
     invoices,
+    notifications,
     reconciliation,
     vendors,
     workflows,
@@ -21,3 +22,4 @@ api_router.include_router(dashboard.router)
 api_router.include_router(audit.router)
 api_router.include_router(activity.router)
 api_router.include_router(workflows.router)
+api_router.include_router(notifications.router)
