@@ -61,6 +61,65 @@ class TestReconciliationEngine:
         assert status == ReconciliationStatus.PARTIAL_MATCH
 
 
+class TestSelfConsistencyReconciliation:
+    """With no external reference amount (the automated pipeline), reconcile
+    falls back to checking the invoice's own arithmetic so a clean invoice can
+    actually reach RECONCILED instead of being stuck at VALIDATED forever."""
+
+    def _make(self, db, admin_user, **fields):
+        from decimal import Decimal
+        from app.models.invoice import Invoice, InvoiceStatus
+
+        inv = Invoice(
+            id=uuid.uuid4(), original_filename="c.pdf", storage_path="c",
+            content_type="application/pdf", uploaded_by=admin_user.id,
+            tenant_id=admin_user.tenant_id, status=InvoiceStatus.EXTRACTED,
+            **{k: Decimal(v) if isinstance(v, str) else v for k, v in fields.items()},
+        )
+        db.add(inv)
+        db.commit()
+        return inv
+
+    def test_internally_consistent_invoice_reconciles(self, db, admin_user):
+        from app.models.invoice import Invoice, InvoiceStatus
+        from app.models.reconciliation import ReconciliationRecord, ReconciliationStatus
+        from app.schemas.reconciliation import ReconciliationRequest
+        from app.services.reconciliation_service import ReconciliationService
+
+        inv = self._make(db, admin_user, subtotal="1000.00", total_tax="180.00",
+                        total_amount="1180.00")
+
+        ReconciliationService(db).reconcile(
+            ReconciliationRequest(invoice_id=inv.id, reference_document_type="workflow"),
+            admin_user,
+        )
+
+        reloaded = db.query(Invoice).filter(Invoice.id == inv.id).one()
+        assert reloaded.status == InvoiceStatus.RECONCILED
+        rec = db.query(ReconciliationRecord).filter(
+            ReconciliationRecord.invoice_id == inv.id
+        ).one()
+        assert rec.status == ReconciliationStatus.MATCHED
+
+    def test_internally_inconsistent_invoice_is_held(self, db, admin_user):
+        from app.models.invoice import Invoice, InvoiceStatus
+        from app.schemas.reconciliation import ReconciliationRequest
+        from app.services.reconciliation_service import ReconciliationService
+
+        # subtotal + tax = 1180, but the stated total is 2000 -- the invoice
+        # doesn't add up, so it must be held for review, not reconciled.
+        inv = self._make(db, admin_user, subtotal="1000.00", total_tax="180.00",
+                        total_amount="2000.00")
+
+        ReconciliationService(db).reconcile(
+            ReconciliationRequest(invoice_id=inv.id, reference_document_type="workflow"),
+            admin_user,
+        )
+
+        reloaded = db.query(Invoice).filter(Invoice.id == inv.id).one()
+        assert reloaded.status == InvoiceStatus.VALIDATED
+
+
 class TestReconciliationAPI:
     def test_list_records_unauthenticated(self, client):
         resp = client.get("/api/v1/reconciliation")

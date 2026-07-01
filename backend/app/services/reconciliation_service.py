@@ -72,9 +72,21 @@ class ReconciliationService:
             self.db.commit()
             return rec
 
-        # Amount matching
+        # Amount matching. When no external expected amount is supplied (the
+        # automated pipeline has no PO/GRN to match against), fall back to a
+        # self-consistency check against the invoice's own declared arithmetic
+        # (subtotal + taxes). Without this, an automatically-reconciled invoice
+        # could never reach MATCHED/RECONCILED -- it would sit at VALIDATED
+        # forever, one step short of the accounting export.
+        expected_amount = payload.expected_amount
+        reference_type = payload.reference_document_type
+        if expected_amount is None:
+            expected_amount = self._derive_expected_amount(invoice)
+            if expected_amount is not None:
+                reference_type = reference_type or "self_consistency"
+
         status, discrepancy_type, discrepancy_amount, confidence = self._match_amount(
-            invoice, payload.expected_amount
+            invoice, expected_amount
         )
 
         rec = self._create_record(
@@ -83,11 +95,11 @@ class ReconciliationService:
             discrepancy_type=discrepancy_type,
             confidence_score=confidence,
             reference_document_id=payload.reference_document_id,
-            reference_document_type=payload.reference_document_type,
-            expected_amount=payload.expected_amount,
+            reference_document_type=reference_type,
+            expected_amount=expected_amount,
             actual_amount=invoice.total_amount,
             discrepancy_amount=discrepancy_amount,
-            tolerance_applied=self._tolerance * (payload.expected_amount or Decimal("0")),
+            tolerance_applied=self._tolerance * (expected_amount or Decimal("0")),
             notes=payload.notes,
             matched_by=current_user.id,
         )
@@ -181,6 +193,24 @@ class ReconciliationService:
         )
         others = [d for d in duplicates if d.id != invoice.id]
         return others[0] if others else None
+
+    def _derive_expected_amount(self, invoice: Invoice) -> Decimal | None:
+        """A self-consistency 'expected' total from the invoice's own fields:
+        ``subtotal + taxes``. Used only when no external reference amount is
+        supplied. Returns None when there is no declared subtotal to build on
+        (nothing to check the total against) -- preserving the existing
+        'held for review' outcome for a bare total with no breakdown.
+        """
+        if invoice.subtotal is None:
+            return None
+        tax = invoice.total_tax
+        if tax is None:
+            tax = sum(
+                (amt for amt in (invoice.cgst_amount, invoice.sgst_amount, invoice.igst_amount)
+                 if amt is not None),
+                Decimal("0"),
+            )
+        return invoice.subtotal + tax
 
     def _match_amount(
         self,
