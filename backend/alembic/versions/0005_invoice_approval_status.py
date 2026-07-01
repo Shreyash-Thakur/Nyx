@@ -22,6 +22,7 @@ _NEW_AUDIT_EVENT_TYPES = (
     "invoice_approval_required",
     "invoice_approved",
     "invoice_rejected",
+    "invoice_tally_export_generated",
 )
 
 

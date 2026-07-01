@@ -34,6 +34,7 @@ class AuditEventType(str, enum.Enum):
     INVOICE_APPROVAL_REQUIRED = "invoice_approval_required"
     INVOICE_APPROVED = "invoice_approved"
     INVOICE_REJECTED = "invoice_rejected"
+    INVOICE_TALLY_EXPORT_GENERATED = "invoice_tally_export_generated"
 
     # Reconciliation
     RECONCILIATION_STARTED = "reconciliation_started"

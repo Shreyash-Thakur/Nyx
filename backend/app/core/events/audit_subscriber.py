@@ -30,6 +30,7 @@ EVENT_TO_AUDIT_TYPE: dict[str, AuditEventType] = {
     "invoice.approval_required": AuditEventType.INVOICE_APPROVAL_REQUIRED,
     "invoice.approved": AuditEventType.INVOICE_APPROVED,
     "invoice.rejected": AuditEventType.INVOICE_REJECTED,
+    "invoice.tally_export_generated": AuditEventType.INVOICE_TALLY_EXPORT_GENERATED,
     "reconciliation.completed": AuditEventType.RECONCILIATION_STARTED,
     "reconciliation.resolved": AuditEventType.RECONCILIATION_RESOLVED,
     "vendor.created": AuditEventType.VENDOR_CREATED,

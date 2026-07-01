@@ -26,6 +26,7 @@ from app.schemas.invoice import (
     JobStatusResponse,
 )
 from app.services.invoice_service import InvoiceService
+from app.services.tally_export_service import TallyExportService
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -177,6 +178,28 @@ def reject_invoice(
     except ValidationError as exc:
         raise bad_request(exc.message)
     return invoice
+
+
+@router.get(
+    "/{invoice_id}/tally-export",
+    dependencies=[Depends(require(Permission.INVOICE_READ))],
+)
+def tally_export_dry_run(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
+    """Preview the Tally voucher XML for a reconciled invoice. Dry-run only:
+    no network call, nothing pushed -- this is what a real push would send."""
+    try:
+        result = TallyExportService(db).dry_run(invoice_id, current_user)
+    except NotFoundError:
+        raise not_found("Invoice", str(invoice_id))
+    except ValidationError as exc:
+        raise bad_request(exc.message)
+    return {
+        "invoice_id": result.invoice_id,
+        "voucher_type": result.voucher_type,
+        "narration": result.narration,
+        "xml": result.xml,
+        "generated_at": result.generated_at,
+    }
 
 
 @router.get(
