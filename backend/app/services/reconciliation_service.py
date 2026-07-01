@@ -43,6 +43,18 @@ class ReconciliationService:
                 f"Invoice must be extracted before reconciliation (current status: {invoice.status})"
             )
 
+        # Idempotency: a workflow retry / duplicate job must not create a second
+        # reconciliation record for an invoice that is already reconciled. Return
+        # the existing matched record instead of matching (and recording) again.
+        if invoice.status == InvoiceStatus.RECONCILED:
+            existing = [
+                r for r in self.recon_repo.get_by_invoice(invoice.id, invoice.tenant_id)
+                if r.status == ReconciliationStatus.MATCHED
+            ]
+            if existing:
+                logger.info("reconcile_skipped_already_reconciled", invoice_id=str(invoice.id))
+                return existing[0]
+
         # Duplicate check
         duplicate = self._check_duplicate(invoice)
         if duplicate:

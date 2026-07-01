@@ -101,6 +101,26 @@ class TestSelfConsistencyReconciliation:
         ).one()
         assert rec.status == ReconciliationStatus.MATCHED
 
+    def test_reconcile_is_idempotent_no_duplicate_record(self, db, admin_user):
+        """A workflow retry / duplicate job must not create a second record for
+        an already-reconciled invoice (Priority 7: duplicate execution)."""
+        from app.models.reconciliation import ReconciliationRecord
+        from app.schemas.reconciliation import ReconciliationRequest
+        from app.services.reconciliation_service import ReconciliationService
+
+        inv = self._make(db, admin_user, subtotal="1000.00", total_tax="0.00",
+                        total_amount="1000.00")
+        svc = ReconciliationService(db)
+        req = ReconciliationRequest(invoice_id=inv.id, reference_document_type="workflow")
+
+        first = svc.reconcile(req, admin_user)
+        second = svc.reconcile(req, admin_user)  # replay
+
+        assert first.id == second.id
+        assert db.query(ReconciliationRecord).filter(
+            ReconciliationRecord.invoice_id == inv.id
+        ).count() == 1
+
     def test_internally_inconsistent_invoice_is_held(self, db, admin_user):
         from app.models.invoice import Invoice, InvoiceStatus
         from app.schemas.reconciliation import ReconciliationRequest
