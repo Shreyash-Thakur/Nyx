@@ -9,6 +9,7 @@ class InvoiceCountSummary(BaseModel):
     uploaded: int
     processing: int
     extracted: int
+    needs_verification: int
     pending_approval: int
     reconciled: int
     failed: int

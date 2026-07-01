@@ -38,6 +38,29 @@ def _admins_for_tenant(db: Session, tenant_id) -> list[User]:
     )
 
 
+def _verifiers_for_tenant(db: Session, tenant_id) -> list[User]:
+    """Users who can act on the verification queue: accountants do the data
+    entry, admins can do anything. Mirrors the INVOICE_WRITE permission."""
+    return list(
+        db.scalars(
+            select(User).where(
+                User.tenant_id == tenant_id,
+                User.role.in_((UserRole.ADMIN, UserRole.ACCOUNTANT)),
+            )
+        ).all()
+    )
+
+
+def on_invoice_needs_verification(event: DomainEvent, db: Session) -> None:
+    body = (event.payload or {}).get("description", event.name)
+    for user in _verifiers_for_tenant(db, event.tenant_id):
+        _notify(
+            db, tenant_id=event.tenant_id, user_id=user.id,
+            title="Invoice needs verification", body=body,
+            event_name=event.name, invoice_id=event.aggregate_id,
+        )
+
+
 def on_invoice_approval_required(event: DomainEvent, db: Session) -> None:
     body = (event.payload or {}).get("description", event.name)
     for admin in _admins_for_tenant(db, event.tenant_id):
@@ -81,6 +104,7 @@ def register() -> None:
     global _registered
     if _registered:
         return
+    event_bus.subscribe("invoice.needs_verification", on_invoice_needs_verification)
     event_bus.subscribe("invoice.approval_required", on_invoice_approval_required)
     event_bus.subscribe("reconciliation.completed", on_reconciliation_completed)
     event_bus.subscribe("invoice.rejected", on_invoice_rejected)

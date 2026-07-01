@@ -161,6 +161,46 @@ class InvoiceService:
 
         return invoice
 
+    def verify(self, invoice_id: uuid.UUID, current_user: User) -> Invoice:
+        """Confirm a low-confidence OCR read held at NEEDS_VERIFICATION and
+        resume the pipeline (TD-3). Correcting the figures first (via the
+        normal PATCH update endpoint) is expected but not enforced here --
+        this call is the explicit human sign-off that the data is trustworthy.
+
+        Moving to VALIDATED (not back to EXTRACTED) is what lets the re-run
+        skip the confidence gate: its ``when`` matches only ``extracted``, so
+        a verified invoice flows straight to the approval gate / reconcile
+        instead of being parked again."""
+        invoice = self.invoice_repo.get_for_tenant_or_raise(invoice_id, current_user.tenant_id)
+        if invoice.status != InvoiceStatus.NEEDS_VERIFICATION:
+            raise ValidationError(
+                f"Invoice is not awaiting verification (current status: {invoice.status})"
+            )
+
+        invoice.status = InvoiceStatus.VALIDATED
+        self.invoice_repo.save(invoice)
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="invoice.verified",
+                aggregate_type="invoice",
+                aggregate_id=invoice.id,
+                actor_id=current_user.id,
+                tenant_id=invoice.tenant_id,
+                payload={
+                    "description": f"Invoice {invoice_id} verified by {current_user.email}",
+                },
+            ),
+        )
+        self.db.commit()
+
+        # Resume the post-extraction workflow now that the read is trusted.
+        from app.workers.queue import enqueue_post_extraction_workflow_job
+        enqueue_post_extraction_workflow_job(str(invoice.id))
+
+        self.db.refresh(invoice)
+        return invoice
+
     def approve(self, invoice_id: uuid.UUID, current_user: User) -> Invoice:
         invoice = self.invoice_repo.get_for_tenant_or_raise(invoice_id, current_user.tenant_id)
         if invoice.status != InvoiceStatus.PENDING_APPROVAL:

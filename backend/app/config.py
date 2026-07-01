@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # for now; per-tenant config is future work (needs a tenant_config table).
     FOUNDER_APPROVAL_THRESHOLD_INR: float = 100000.0
 
+    # Human-verify OCR screen (TD-3) — invoices with OCR confidence below this
+    # are held at EXTRACTED for manual review instead of auto-reconciling a
+    # low-confidence read. Missing confidence (e.g. no OCR ever ran) is
+    # treated as trusted, not low-confidence -- there is nothing to verify a
+    # human-entered figure against.
+    OCR_CONFIDENCE_VERIFY_THRESHOLD: float = 0.75
+
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: Literal["json", "console"] = "console"

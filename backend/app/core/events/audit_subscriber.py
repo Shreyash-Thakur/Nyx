@@ -27,6 +27,8 @@ EVENT_TO_AUDIT_TYPE: dict[str, AuditEventType] = {
     "invoice.updated": AuditEventType.INVOICE_UPDATED,
     "invoice.processing_failed": AuditEventType.INVOICE_PROCESSING_FAILED,
     "invoice.duplicate_detected": AuditEventType.INVOICE_DUPLICATE_DETECTED,
+    "invoice.needs_verification": AuditEventType.INVOICE_NEEDS_VERIFICATION,
+    "invoice.verified": AuditEventType.INVOICE_VERIFIED,
     "invoice.approval_required": AuditEventType.INVOICE_APPROVAL_REQUIRED,
     "invoice.approved": AuditEventType.INVOICE_APPROVED,
     "invoice.rejected": AuditEventType.INVOICE_REJECTED,

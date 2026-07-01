@@ -25,6 +25,7 @@ class InvoiceStatus(str, enum.Enum):
     QUEUED = "queued"
     PROCESSING = "processing"
     EXTRACTED = "extracted"
+    NEEDS_VERIFICATION = "needs_verification"
     VALIDATED = "validated"
     PENDING_APPROVAL = "pending_approval"
     APPROVED = "approved"

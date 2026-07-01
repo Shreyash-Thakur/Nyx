@@ -143,6 +143,23 @@ def update_invoice(
 
 
 @router.post(
+    "/{invoice_id}/verify",
+    response_model=InvoiceResponse,
+    dependencies=[Depends(require(Permission.INVOICE_WRITE))],
+)
+def verify_invoice(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
+    """Confirm a low-confidence OCR read held at needs_verification; resumes
+    the post-extraction workflow (approval gate, then reconciliation)."""
+    try:
+        invoice = InvoiceService(db).verify(invoice_id, current_user)
+    except NotFoundError:
+        raise not_found("Invoice", str(invoice_id))
+    except ValidationError as exc:
+        raise bad_request(exc.message)
+    return invoice
+
+
+@router.post(
     "/{invoice_id}/approve",
     response_model=InvoiceResponse,
     dependencies=[Depends(require(Permission.INVOICE_APPROVE))],
