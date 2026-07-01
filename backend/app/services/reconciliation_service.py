@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.events import DomainEvent, event_bus
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ValidationError
 from app.core.logging import get_logger
 from app.models.audit_log import AuditEventType
 from app.models.invoice import Invoice, InvoiceStatus
@@ -34,9 +34,9 @@ class ReconciliationService:
         self._tolerance = Decimal(str(settings.RECONCILIATION_TOLERANCE_PERCENT))
 
     def reconcile(self, payload: ReconciliationRequest, current_user: User) -> ReconciliationRecord:
-        invoice = self.invoice_repo.get(payload.invoice_id)
-        if not invoice:
-            raise NotFoundError("Invoice", str(payload.invoice_id))
+        invoice = self.invoice_repo.get_for_tenant_or_raise(
+            payload.invoice_id, current_user.tenant_id
+        )
 
         if invoice.status not in (InvoiceStatus.EXTRACTED, InvoiceStatus.VALIDATED, InvoiceStatus.RECONCILED):
             raise ValidationError(
@@ -120,14 +120,14 @@ class ReconciliationService:
         payload: ReconciliationResolveRequest,
         current_user: User,
     ) -> ReconciliationRecord:
-        record = self.recon_repo.get_or_raise(record_id)
+        record = self.recon_repo.get_for_tenant_or_raise(record_id, current_user.tenant_id)
         record.status = payload.status
         record.resolution_notes = payload.resolution_notes
         record.matched_by = current_user.id
         self.recon_repo.save(record)
 
         if payload.status == ReconciliationStatus.MATCHED:
-            invoice = self.invoice_repo.get(record.invoice_id)
+            invoice = self.invoice_repo.get_for_tenant(record.invoice_id, current_user.tenant_id)
             if invoice:
                 invoice.status = InvoiceStatus.RECONCILED
 
@@ -167,6 +167,7 @@ class ReconciliationService:
             invoice.invoice_number,
             invoice.vendor_id,
             invoice.invoice_date,
+            invoice.tenant_id,
             window_days=settings.RECONCILIATION_DUPLICATE_WINDOW_DAYS,
         )
         others = [d for d in duplicates if d.id != invoice.id]

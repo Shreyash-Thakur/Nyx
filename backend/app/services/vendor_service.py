@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import ConflictError
 from app.models.audit_log import AuditEventType
 from app.models.user import User
 from app.models.vendor import Vendor
@@ -19,7 +19,7 @@ class VendorService:
 
     def create(self, payload: VendorCreate, current_user: User) -> Vendor:
         if payload.gst_number:
-            existing = self.vendor_repo.get_by_gst(payload.gst_number)
+            existing = self.vendor_repo.get_by_gst(payload.gst_number, current_user.tenant_id)
             if existing:
                 raise ConflictError(f"Vendor with GST {payload.gst_number} already exists")
 
@@ -43,14 +43,11 @@ class VendorService:
         self.db.commit()
         return vendor
 
-    def get(self, vendor_id: uuid.UUID) -> Vendor:
-        vendor = self.vendor_repo.get(vendor_id)
-        if not vendor:
-            raise NotFoundError("Vendor", str(vendor_id))
-        return vendor
+    def get(self, vendor_id: uuid.UUID, tenant_id: uuid.UUID) -> Vendor:
+        return self.vendor_repo.get_for_tenant_or_raise(vendor_id, tenant_id)
 
     def update(self, vendor_id: uuid.UUID, payload: VendorUpdate, current_user: User) -> Vendor:
-        vendor = self.get(vendor_id)
+        vendor = self.get(vendor_id, current_user.tenant_id)
 
         for field_name, value in payload.model_dump(exclude_none=True).items():
             setattr(vendor, field_name, value)

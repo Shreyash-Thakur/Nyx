@@ -62,7 +62,7 @@ def list_vendors(
 def get_vendor(vendor_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
     """Fetch a single vendor."""
     try:
-        return VendorService(db).get(vendor_id)
+        return VendorService(db).get(vendor_id, current_user.tenant_id)
     except NotFoundError:
         raise not_found("Vendor", str(vendor_id))
 

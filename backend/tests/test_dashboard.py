@@ -46,7 +46,7 @@ def test_queue_status_average_processing_time(db, admin_user):
     )
     db.commit()
 
-    status = DashboardService(db)._queue_status()
+    status = DashboardService(db, admin_user.tenant_id)._queue_status()
 
     assert status.average_processing_time_seconds is not None
     assert 5.0 <= status.average_processing_time_seconds <= 7.0

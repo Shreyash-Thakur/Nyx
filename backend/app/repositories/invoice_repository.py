@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.exceptions import NotFoundError
 from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.repositories.base import BaseRepository
 from app.schemas.invoice import InvoiceFilter
@@ -21,8 +22,20 @@ class InvoiceRepository(BaseRepository[Invoice]):
         )
         return self.db.scalar(stmt)
 
-    def get_by_checksum(self, checksum: str) -> Invoice | None:
-        stmt = select(Invoice).where(Invoice.checksum == checksum)
+    def get_for_tenant(self, id: uuid.UUID, tenant_id: uuid.UUID) -> Invoice | None:
+        stmt = select(Invoice).where(Invoice.id == id, Invoice.tenant_id == tenant_id)
+        return self.db.scalar(stmt)
+
+    def get_for_tenant_or_raise(self, id: uuid.UUID, tenant_id: uuid.UUID) -> Invoice:
+        invoice = self.get_for_tenant(id, tenant_id)
+        if invoice is None:
+            raise NotFoundError("Invoice", str(id))
+        return invoice
+
+    def get_by_checksum(self, checksum: str, tenant_id: uuid.UUID) -> Invoice | None:
+        stmt = select(Invoice).where(
+            Invoice.checksum == checksum, Invoice.tenant_id == tenant_id
+        )
         return self.db.scalar(stmt)
 
     def find_duplicates(
@@ -30,6 +43,7 @@ class InvoiceRepository(BaseRepository[Invoice]):
         invoice_number: str,
         vendor_id: uuid.UUID,
         invoice_date: date,
+        tenant_id: uuid.UUID,
         window_days: int = 30,
     ) -> list[Invoice]:
         from datetime import timedelta
@@ -40,6 +54,7 @@ class InvoiceRepository(BaseRepository[Invoice]):
             select(Invoice)
             .where(
                 and_(
+                    Invoice.tenant_id == tenant_id,
                     Invoice.invoice_number == invoice_number,
                     Invoice.vendor_id == vendor_id,
                     Invoice.invoice_date.between(date_min, date_max),
@@ -99,17 +114,23 @@ class InvoiceRepository(BaseRepository[Invoice]):
         )
         return list(self.db.scalars(stmt).unique().all()), total
 
-    def count_by_status(self) -> dict[str, int]:
+    def count_by_status(self, tenant_id: uuid.UUID) -> dict[str, int]:
         stmt = (
             select(Invoice.status, func.count().label("cnt"))
+            .where(Invoice.tenant_id == tenant_id)
             .group_by(Invoice.status)
         )
         rows = self.db.execute(stmt).all()
         return {row.status.value: row.cnt for row in rows}
 
-    def total_amount_by_payment_status(self, payment_status: PaymentStatus) -> Decimal:
+    def total_amount_by_payment_status(
+        self, payment_status: PaymentStatus, tenant_id: uuid.UUID
+    ) -> Decimal:
         stmt = (
             select(func.coalesce(func.sum(Invoice.total_amount), 0))
-            .where(Invoice.payment_status == payment_status)
+            .where(
+                Invoice.payment_status == payment_status,
+                Invoice.tenant_id == tenant_id,
+            )
         )
         return self.db.scalar(stmt) or Decimal("0")

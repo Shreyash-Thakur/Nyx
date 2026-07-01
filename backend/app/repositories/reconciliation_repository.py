@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.exceptions import NotFoundError
 from app.models.reconciliation import DiscrepancyType, ReconciliationRecord, ReconciliationStatus
 from app.repositories.base import BaseRepository
 from app.schemas.reconciliation import ReconciliationFilter
@@ -11,6 +12,22 @@ from app.schemas.reconciliation import ReconciliationFilter
 
 class ReconciliationRepository(BaseRepository[ReconciliationRecord]):
     model = ReconciliationRecord
+
+    def get_for_tenant(
+        self, id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> ReconciliationRecord | None:
+        stmt = select(ReconciliationRecord).where(
+            ReconciliationRecord.id == id, ReconciliationRecord.tenant_id == tenant_id
+        )
+        return self.db.scalar(stmt)
+
+    def get_for_tenant_or_raise(
+        self, id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> ReconciliationRecord:
+        record = self.get_for_tenant(id, tenant_id)
+        if record is None:
+            raise NotFoundError("ReconciliationRecord", str(id))
+        return record
 
     def get_by_invoice(
         self, invoice_id: uuid.UUID, tenant_id: uuid.UUID
@@ -59,14 +76,16 @@ class ReconciliationRepository(BaseRepository[ReconciliationRecord]):
         )
         return list(self.db.scalars(stmt).all()), total
 
-    def discrepancy_summary(self) -> dict:
+    def discrepancy_summary(self, tenant_id: uuid.UUID) -> dict:
         total_stmt = select(func.count()).select_from(ReconciliationRecord).where(
-            ReconciliationRecord.discrepancy_type.isnot(None)
+            ReconciliationRecord.tenant_id == tenant_id,
+            ReconciliationRecord.discrepancy_type.isnot(None),
         )
         total = self.db.scalar(total_stmt) or 0
 
         unresolved_stmt = select(func.count()).select_from(ReconciliationRecord).where(
             and_(
+                ReconciliationRecord.tenant_id == tenant_id,
                 ReconciliationRecord.discrepancy_type.isnot(None),
                 ReconciliationRecord.status.notin_(
                     [ReconciliationStatus.MATCHED, ReconciliationStatus.MANUALLY_RESOLVED]
@@ -77,12 +96,18 @@ class ReconciliationRepository(BaseRepository[ReconciliationRecord]):
 
         amount_stmt = select(
             func.coalesce(func.sum(ReconciliationRecord.discrepancy_amount), 0)
-        ).where(ReconciliationRecord.discrepancy_amount.isnot(None))
+        ).where(
+            ReconciliationRecord.tenant_id == tenant_id,
+            ReconciliationRecord.discrepancy_amount.isnot(None),
+        )
         total_amount = self.db.scalar(amount_stmt) or Decimal("0")
 
         by_type_stmt = (
             select(ReconciliationRecord.discrepancy_type, func.count().label("cnt"))
-            .where(ReconciliationRecord.discrepancy_type.isnot(None))
+            .where(
+                ReconciliationRecord.tenant_id == tenant_id,
+                ReconciliationRecord.discrepancy_type.isnot(None),
+            )
             .group_by(ReconciliationRecord.discrepancy_type)
         )
         by_type = {

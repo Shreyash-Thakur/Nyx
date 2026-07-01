@@ -53,7 +53,7 @@ class InvoiceService:
         )
 
         # Idempotency: reject identical file already in system
-        existing = self.invoice_repo.get_by_checksum(checksum)
+        existing = self.invoice_repo.get_by_checksum(checksum, current_user.tenant_id)
         if existing and existing.status != InvoiceStatus.FAILED:
             raise ConflictError(
                 f"Duplicate file detected. Existing invoice ID: {existing.id}"
@@ -138,7 +138,7 @@ class InvoiceService:
         )
 
     def update(self, invoice_id: uuid.UUID, payload: InvoiceUpdate, current_user: User) -> Invoice:
-        invoice = self.invoice_repo.get_or_raise(invoice_id)
+        invoice = self.invoice_repo.get_for_tenant_or_raise(invoice_id, current_user.tenant_id)
         changed: dict = {}
 
         for field_name, value in payload.model_dump(exclude_none=True).items():
@@ -178,9 +178,10 @@ class InvoiceService:
             if field_name in extracted and extracted[field_name] is not None:
                 setattr(invoice, field_name, extracted[field_name])
 
-        # Associate with vendor
+        # Associate with vendor (tenant-scoped: never cross-match another
+        # tenant's vendor of the same name)
         if extracted.get("vendor_name"):
-            vendor = self.vendor_repo.find_by_name(extracted["vendor_name"])
+            vendor = self.vendor_repo.find_by_name(extracted["vendor_name"], invoice.tenant_id)
             if vendor:
                 invoice.vendor_id = vendor.id
 

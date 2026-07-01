@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -22,8 +23,9 @@ from app.schemas.dashboard import (
 
 
 class DashboardService:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, tenant_id: uuid.UUID) -> None:
         self.db = db
+        self.tenant_id = tenant_id
         self.invoice_repo = InvoiceRepository(db)
         self.recon_repo = ReconciliationRepository(db)
 
@@ -36,12 +38,12 @@ class DashboardService:
             recent_trends=self._recent_trends(),
             total_processed_amount=self._total_amount(InvoiceStatus.RECONCILED),
             pending_payment_amount=self.invoice_repo.total_amount_by_payment_status(
-                PaymentStatus.PENDING
+                PaymentStatus.PENDING, self.tenant_id
             ),
         )
 
     def _invoice_summary(self) -> InvoiceCountSummary:
-        counts = self.invoice_repo.count_by_status()
+        counts = self.invoice_repo.count_by_status(self.tenant_id)
         return InvoiceCountSummary(
             total=sum(counts.values()),
             uploaded=counts.get(InvoiceStatus.UPLOADED.value, 0),
@@ -53,7 +55,7 @@ class DashboardService:
         )
 
     def _discrepancy_summary(self) -> DiscrepancySummary:
-        raw = self.recon_repo.discrepancy_summary()
+        raw = self.recon_repo.discrepancy_summary(self.tenant_id)
         return DiscrepancySummary(**raw)
 
     def _queue_status(self) -> QueueStatus:
@@ -61,7 +63,10 @@ class DashboardService:
             return self.db.scalar(
                 select(func.count())
                 .select_from(ProcessingJob)
-                .where(ProcessingJob.status == status)
+                .where(
+                    ProcessingJob.status == status,
+                    ProcessingJob.tenant_id == self.tenant_id,
+                )
             ) or 0
 
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -71,6 +76,7 @@ class DashboardService:
             .where(
                 ProcessingJob.status == JobStatus.COMPLETED,
                 ProcessingJob.completed_at >= today_start,
+                ProcessingJob.tenant_id == self.tenant_id,
             )
         ) or 0
 
@@ -91,6 +97,7 @@ class DashboardService:
                 ProcessingJob.status == JobStatus.COMPLETED,
                 ProcessingJob.started_at.isnot(None),
                 ProcessingJob.completed_at.isnot(None),
+                ProcessingJob.tenant_id == self.tenant_id,
             )
         )
 
@@ -120,6 +127,7 @@ class DashboardService:
             )
             .join(Invoice, Invoice.vendor_id == Vendor.id)
             .outerjoin(ReconciliationRecord, ReconciliationRecord.invoice_id == Invoice.id)
+            .where(Vendor.tenant_id == self.tenant_id, Invoice.tenant_id == self.tenant_id)
             .group_by(Vendor.id, Vendor.name)
             .order_by(func.sum(Invoice.total_amount).desc().nullslast())
             .limit(limit)
@@ -149,7 +157,7 @@ class DashboardService:
                 .filter(Invoice.status == InvoiceStatus.RECONCILED)
                 .label("reconciled_count"),
             )
-            .where(Invoice.invoice_date >= since)
+            .where(Invoice.invoice_date >= since, Invoice.tenant_id == self.tenant_id)
             .group_by(cast(Invoice.invoice_date, SADate))
             .order_by(cast(Invoice.invoice_date, SADate))
         )
@@ -167,7 +175,7 @@ class DashboardService:
     def _total_amount(self, status: InvoiceStatus) -> Decimal:
         result = self.db.scalar(
             select(func.coalesce(func.sum(Invoice.total_amount), 0)).where(
-                Invoice.status == status
+                Invoice.status == status, Invoice.tenant_id == self.tenant_id
             )
         )
         return Decimal(str(result or 0))

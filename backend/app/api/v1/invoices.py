@@ -152,7 +152,10 @@ def get_invoice_jobs(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSes
 
     jobs = db.scalars(
         select(ProcessingJob)
-        .where(ProcessingJob.invoice_id == invoice_id)
+        .where(
+            ProcessingJob.invoice_id == invoice_id,
+            ProcessingJob.tenant_id == current_user.tenant_id,
+        )
         .order_by(ProcessingJob.created_at.desc())
     ).all()
     return jobs
