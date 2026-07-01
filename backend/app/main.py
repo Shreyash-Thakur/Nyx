@@ -91,19 +91,32 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 @app.get("/health", tags=["Health"], include_in_schema=False)
 def health_check():
     db_ok = check_db_connection()
+
+    # Redis is only *required* in explicit redis mode. In inline mode it is
+    # intentionally absent (the queue runs in-process), and in auto mode its
+    # absence is a supported fallback -- so neither should make a correctly
+    # configured deployment report "degraded" (which would fail a readiness
+    # probe on the default zero-dependency setup).
+    backend = settings.QUEUE_BACKEND
+    redis_required = backend == "redis"
     try:
         from app.workers.queue import get_redis
         get_redis().ping()
-        redis_ok = True
+        redis_state = "ok"
     except Exception:
-        redis_ok = False
+        redis_state = "unavailable"
 
-    overall = "healthy" if db_ok and redis_ok else "degraded"
+    queue_ok = redis_state == "ok" or not redis_required
+    overall = "healthy" if db_ok and queue_ok else "degraded"
     return {
         "status": overall,
         "version": settings.APP_VERSION,
         "environment": settings.APP_ENV,
-        "checks": {"database": "ok" if db_ok else "error", "redis": "ok" if redis_ok else "error"},
+        "checks": {
+            "database": "ok" if db_ok else "error",
+            "queue_backend": backend,
+            "redis": redis_state if redis_required else f"{redis_state} (not required)",
+        },
     }
 
 
