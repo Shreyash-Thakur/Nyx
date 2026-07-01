@@ -20,6 +20,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.invoice import (
     InvoiceDetailResponse,
     InvoiceFilter,
+    InvoiceRejectRequest,
     InvoiceResponse,
     InvoiceUpdate,
     JobStatusResponse,
@@ -137,6 +138,44 @@ def update_invoice(
         invoice = InvoiceService(db).update(invoice_id, payload, current_user)
     except NotFoundError:
         raise not_found("Invoice", str(invoice_id))
+    return invoice
+
+
+@router.post(
+    "/{invoice_id}/approve",
+    response_model=InvoiceResponse,
+    dependencies=[Depends(require(Permission.INVOICE_APPROVE))],
+)
+def approve_invoice(invoice_id: uuid.UUID, current_user: CurrentUser, db: DBSession):
+    """Approve a high-value invoice held at pending_approval; resumes the
+    post-extraction workflow so reconciliation runs."""
+    try:
+        invoice = InvoiceService(db).approve(invoice_id, current_user)
+    except NotFoundError:
+        raise not_found("Invoice", str(invoice_id))
+    except ValidationError as exc:
+        raise bad_request(exc.message)
+    return invoice
+
+
+@router.post(
+    "/{invoice_id}/reject",
+    response_model=InvoiceResponse,
+    dependencies=[Depends(require(Permission.INVOICE_APPROVE))],
+)
+def reject_invoice(
+    invoice_id: uuid.UUID,
+    payload: InvoiceRejectRequest,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """Reject a high-value invoice held at pending_approval."""
+    try:
+        invoice = InvoiceService(db).reject(invoice_id, payload.reason, current_user)
+    except NotFoundError:
+        raise not_found("Invoice", str(invoice_id))
+    except ValidationError as exc:
+        raise bad_request(exc.message)
     return invoice
 
 

@@ -24,6 +24,7 @@ from sqlalchemy.pool import StaticPool
 
 TEST_DATABASE_URL = os.environ["TEST_DATABASE_URL"]
 
+import app.database as app_database
 from app.database import Base, get_db
 from app.main import app
 
@@ -35,6 +36,18 @@ if TEST_DATABASE_URL == "sqlite:///:memory:":
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+    )
+    # app.database builds its own engine at import time from DATABASE_URL.
+    # Two separate create_engine("sqlite:///:memory:") calls are two separate,
+    # unconnected databases even with an identical URL -- StaticPool only
+    # shares a connection within the engine that owns it. Any code that opens
+    # its own session via app.database.SessionLocal() (background workers,
+    # the inline queue) would silently hit an empty, tableless database.
+    # Point app.database at this fixture's engine so a session opened from
+    # anywhere in the app during a test lands on the same in-memory DB.
+    app_database.engine = engine
+    app_database.SessionLocal = sessionmaker(
+        bind=engine, autocommit=False, autoflush=False, expire_on_commit=False
     )
 else:
     engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)

@@ -35,7 +35,10 @@ class ReconciliationService:
             payload.invoice_id, current_user.tenant_id
         )
 
-        if invoice.status not in (InvoiceStatus.EXTRACTED, InvoiceStatus.VALIDATED, InvoiceStatus.RECONCILED):
+        if invoice.status not in (
+            InvoiceStatus.EXTRACTED, InvoiceStatus.VALIDATED,
+            InvoiceStatus.APPROVED, InvoiceStatus.RECONCILED,
+        ):
             raise ValidationError(
                 f"Invoice must be extracted before reconciliation (current status: {invoice.status})"
             )

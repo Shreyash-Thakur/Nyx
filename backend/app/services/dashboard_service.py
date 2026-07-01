@@ -49,6 +49,7 @@ class DashboardService:
             uploaded=counts.get(InvoiceStatus.UPLOADED.value, 0),
             processing=counts.get(InvoiceStatus.PROCESSING.value, 0),
             extracted=counts.get(InvoiceStatus.EXTRACTED.value, 0),
+            pending_approval=counts.get(InvoiceStatus.PENDING_APPROVAL.value, 0),
             reconciled=counts.get(InvoiceStatus.RECONCILED.value, 0),
             failed=counts.get(InvoiceStatus.FAILED.value, 0),
             duplicate=counts.get(InvoiceStatus.DUPLICATE.value, 0),

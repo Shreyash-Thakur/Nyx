@@ -72,6 +72,11 @@ class Settings(BaseSettings):
     RECONCILIATION_TOLERANCE_PERCENT: float = 0.01
     RECONCILIATION_DUPLICATE_WINDOW_DAYS: int = 30
 
+    # Finance approvals — invoices above this amount are held at
+    # PENDING_APPROVAL instead of auto-reconciling. Single global threshold
+    # for now; per-tenant config is future work (needs a tenant_config table).
+    FOUNDER_APPROVAL_THRESHOLD_INR: float = 100000.0
+
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: Literal["json", "console"] = "console"

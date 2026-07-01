@@ -161,6 +161,70 @@ class InvoiceService:
 
         return invoice
 
+    def approve(self, invoice_id: uuid.UUID, current_user: User) -> Invoice:
+        invoice = self.invoice_repo.get_for_tenant_or_raise(invoice_id, current_user.tenant_id)
+        if invoice.status != InvoiceStatus.PENDING_APPROVAL:
+            raise ValidationError(
+                f"Invoice is not pending approval (current status: {invoice.status})"
+            )
+
+        # A distinct status from VALIDATED/EXTRACTED: the gate step's `when`
+        # only matches those two, so re-running the workflow after approval
+        # doesn't immediately re-trigger the same gate and flip the invoice
+        # straight back to pending_approval.
+        invoice.status = InvoiceStatus.APPROVED
+        self.invoice_repo.save(invoice)
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="invoice.approved",
+                aggregate_type="invoice",
+                aggregate_id=invoice.id,
+                actor_id=current_user.id,
+                tenant_id=invoice.tenant_id,
+                payload={
+                    "description": f"Invoice {invoice_id} approved by {current_user.email}",
+                },
+            ),
+        )
+        self.db.commit()
+
+        # The gate parked the workflow at pending_approval; re-run it now that
+        # the invoice is validated again so reconciliation actually happens.
+        from app.workers.queue import enqueue_post_extraction_workflow_job
+        enqueue_post_extraction_workflow_job(str(invoice.id))
+
+        self.db.refresh(invoice)
+        return invoice
+
+    def reject(self, invoice_id: uuid.UUID, reason: str, current_user: User) -> Invoice:
+        invoice = self.invoice_repo.get_for_tenant_or_raise(invoice_id, current_user.tenant_id)
+        if invoice.status != InvoiceStatus.PENDING_APPROVAL:
+            raise ValidationError(
+                f"Invoice is not pending approval (current status: {invoice.status})"
+            )
+
+        invoice.status = InvoiceStatus.REJECTED
+        invoice.extraction_notes = reason
+        self.invoice_repo.save(invoice)
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="invoice.rejected",
+                aggregate_type="invoice",
+                aggregate_id=invoice.id,
+                actor_id=current_user.id,
+                tenant_id=invoice.tenant_id,
+                payload={
+                    "description": f"Invoice {invoice_id} rejected by {current_user.email}: {reason}",
+                    "reason": reason,
+                },
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(invoice)
+        return invoice
+
     def apply_extracted_data(
         self,
         invoice_id: uuid.UUID,

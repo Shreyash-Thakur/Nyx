@@ -74,6 +74,10 @@ class InvoiceUpdate(BaseModel):
     total_amount: Decimal | None = None
 
 
+class InvoiceRejectRequest(BaseModel):
+    reason: str
+
+
 class InvoiceFilter(BaseModel):
     status: InvoiceStatus | None = None
     payment_status: PaymentStatus | None = None

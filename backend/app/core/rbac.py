@@ -25,6 +25,7 @@ class Permission:
     AUDIT_READ = "audit:read"
     USER_MANAGE = "user:manage"
     WORKFLOW_MANAGE = "workflow:manage"
+    INVOICE_APPROVE = "invoice:approve"
 
     @classmethod
     def all(cls) -> set[str]:

@@ -31,6 +31,9 @@ class AuditEventType(str, enum.Enum):
     INVOICE_UPDATED = "invoice_updated"
     INVOICE_DELETED = "invoice_deleted"
     INVOICE_DUPLICATE_DETECTED = "invoice_duplicate_detected"
+    INVOICE_APPROVAL_REQUIRED = "invoice_approval_required"
+    INVOICE_APPROVED = "invoice_approved"
+    INVOICE_REJECTED = "invoice_rejected"
 
     # Reconciliation
     RECONCILIATION_STARTED = "reconciliation_started"
