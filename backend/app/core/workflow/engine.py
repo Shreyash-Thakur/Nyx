@@ -104,6 +104,28 @@ class WorkflowRunner:
         db.add(instance)
         db.flush()
 
+        self._execute(db, instance, definition, ctx)
+        return instance
+
+    def retry(self, db: Session, instance, definition: WorkflowDefinition):
+        """Re-run a failed instance's steps against its own persisted context.
+
+        The engine has no per-step resume cursor (deliberately deferred, see
+        module docstring), so this replays every step from the top rather
+        than continuing mid-step. That is safe exactly because every
+        registered action is expected to be idempotent -- the same contract
+        the engine already relies on for the primary run.
+        """
+        if instance.status != "failed":
+            raise ValueError(f"Cannot retry a workflow instance in status {instance.status!r}")
+
+        ctx: dict = dict(instance.context or {})
+        instance.status = "running"
+        instance.error = None
+        self._execute(db, instance, definition, ctx)
+        return instance
+
+    def _execute(self, db: Session, instance, definition: WorkflowDefinition, ctx: dict) -> None:
         try:
             for step in definition.steps:
                 if not condition_met(step.when, ctx):
@@ -127,4 +149,3 @@ class WorkflowRunner:
         # Reassign so SQLAlchemy detects the JSON mutation.
         instance.context = dict(ctx)
         db.flush()
-        return instance

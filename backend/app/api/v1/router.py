@@ -1,6 +1,15 @@
 from fastapi import APIRouter
 
-from app.api.v1 import activity, auth, audit, dashboard, invoices, reconciliation, vendors
+from app.api.v1 import (
+    activity,
+    audit,
+    auth,
+    dashboard,
+    invoices,
+    reconciliation,
+    vendors,
+    workflows,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -11,3 +20,4 @@ api_router.include_router(reconciliation.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(audit.router)
 api_router.include_router(activity.router)
+api_router.include_router(workflows.router)

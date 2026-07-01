@@ -24,6 +24,7 @@ class Permission:
     DASHBOARD_READ = "dashboard:read"
     AUDIT_READ = "audit:read"
     USER_MANAGE = "user:manage"
+    WORKFLOW_MANAGE = "workflow:manage"
 
     @classmethod
     def all(cls) -> set[str]:

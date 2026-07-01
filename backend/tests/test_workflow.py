@@ -76,6 +76,49 @@ def test_failed_action_marks_instance_failed(db):
     assert "kaboom" in (instance.error or "")
 
 
+def test_retry_reruns_a_failed_instance(db):
+    reg = ActionRegistry()
+    calls = []
+
+    @reg.register("flaky")
+    def flaky(params, ctx, db):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("transient")
+        return {"ok": True}
+
+    definition = WorkflowDefinition(name="flaky_wf", steps=[WorkflowStep(id="s1", action="flaky")])
+    runner = WorkflowRunner(reg)
+
+    instance = runner.run(db, definition)
+    db.commit()
+    assert instance.status == "failed"
+
+    runner.retry(db, instance, definition)
+    db.commit()
+
+    assert instance.status == "completed"
+    assert instance.context["ok"] is True
+    assert len(calls) == 2
+
+
+def test_retry_rejects_non_failed_instance(db):
+    reg = ActionRegistry()
+    reg.register("noop")(lambda params, ctx, db: {})
+    definition = WorkflowDefinition(name="noop_wf", steps=[WorkflowStep(id="s1", action="noop")])
+    runner = WorkflowRunner(reg)
+
+    instance = runner.run(db, definition)
+    db.commit()
+    assert instance.status == "completed"
+
+    try:
+        runner.retry(db, instance, definition)
+        assert False, "expected ValueError"
+    except ValueError:
+        pass
+
+
 def test_reconcile_action_runs_against_an_invoice(db, admin_user):
     from app.core.workflow.actions import action_registry, build_invoice_post_extraction
 

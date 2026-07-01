@@ -8,6 +8,7 @@ behaves identically to the auto-reconcile worker.
 from __future__ import annotations
 
 import uuid
+from typing import Callable
 
 from app.core.system import ensure_system_user
 from app.core.workflow.engine import ActionRegistry, WorkflowDefinition, WorkflowStep
@@ -46,3 +47,11 @@ def build_invoice_post_extraction() -> WorkflowDefinition:
             ),
         ],
     )
+
+
+# Looked up by workflow_name (WorkflowInstance.workflow_name) so a failed
+# instance can be retried without the caller needing to know which builder
+# function produced its definition.
+WORKFLOW_DEFINITIONS: dict[str, Callable[[], WorkflowDefinition]] = {
+    "invoice_post_extraction": build_invoice_post_extraction,
+}
