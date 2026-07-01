@@ -86,5 +86,36 @@ def test_notifications_are_scoped_to_the_caller_not_just_the_tenant(client, db, 
     assert resp.json() == []
 
 
+def test_unread_count_and_mark_all_read(client, db, admin_user, auth_headers):
+    for i in range(3):
+        db.add(Notification(
+            tenant_id=admin_user.tenant_id, user_id=admin_user.id,
+            title=f"t{i}", body="b", event_name="invoice.approval_required",
+        ))
+    db.commit()
+
+    # Badge count reflects the three unread.
+    assert client.get("/api/v1/notifications/unread-count", headers=auth_headers).json()["unread"] == 3
+
+    # Mark-all-read clears them and reports how many were affected.
+    resp = client.post("/api/v1/notifications/read-all", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["marked_read"] == 3
+
+    assert client.get("/api/v1/notifications/unread-count", headers=auth_headers).json()["unread"] == 0
+    # Idempotent: a second call marks nothing.
+    assert client.post("/api/v1/notifications/read-all", headers=auth_headers).json()["marked_read"] == 0
+
+
+def test_unread_count_is_scoped_to_the_caller(client, db, admin_user, auth_headers):
+    """Another user's unread notifications must not inflate this user's badge."""
+    db.add(Notification(
+        tenant_id=admin_user.tenant_id, user_id=uuid.uuid4(), title="t", body="b",
+        event_name="invoice.approval_required",
+    ))
+    db.commit()
+    assert client.get("/api/v1/notifications/unread-count", headers=auth_headers).json()["unread"] == 0
+
+
 def test_notifications_require_authentication(client):
     assert client.get("/api/v1/notifications").status_code == 401

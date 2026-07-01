@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.exceptions import not_found
 from app.core.rbac import Permission
@@ -12,6 +12,14 @@ from app.dependencies import CurrentUser, DBSession, require
 from app.models.notification import Notification
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+
+class UnreadCountResponse(BaseModel):
+    unread: int
+
+
+class MarkAllReadResponse(BaseModel):
+    marked_read: int
 
 
 class NotificationResponse(BaseModel):
@@ -47,6 +55,47 @@ def list_notifications(
         stmt = stmt.where(Notification.read_at.is_(None))
     stmt = stmt.order_by(Notification.created_at.desc()).limit(limit)
     return db.scalars(stmt).all()
+
+
+@router.get(
+    "/unread-count",
+    response_model=UnreadCountResponse,
+    dependencies=[Depends(require(Permission.NOTIFICATION_READ))],
+)
+def unread_count(current_user: CurrentUser, db: DBSession):
+    """Badge count: the caller's own unread notifications."""
+    count = db.scalar(
+        select(func.count())
+        .select_from(Notification)
+        .where(
+            Notification.tenant_id == current_user.tenant_id,
+            Notification.user_id == current_user.id,
+            Notification.read_at.is_(None),
+        )
+    )
+    return UnreadCountResponse(unread=count or 0)
+
+
+@router.post(
+    "/read-all",
+    response_model=MarkAllReadResponse,
+    dependencies=[Depends(require(Permission.NOTIFICATION_READ))],
+)
+def mark_all_read(current_user: CurrentUser, db: DBSession):
+    """Mark every unread notification for the caller as read; returns how many
+    were affected."""
+    now = datetime.now(timezone.utc)
+    marked = (
+        db.query(Notification)
+        .filter(
+            Notification.tenant_id == current_user.tenant_id,
+            Notification.user_id == current_user.id,
+            Notification.read_at.is_(None),
+        )
+        .update({Notification.read_at: now}, synchronize_session=False)
+    )
+    db.commit()
+    return MarkAllReadResponse(marked_read=marked)
 
 
 @router.post(
