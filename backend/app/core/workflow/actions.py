@@ -42,7 +42,7 @@ def build_invoice_post_extraction() -> WorkflowDefinition:
             WorkflowStep(
                 id="reconcile",
                 action="accounts.reconcile_invoice",
-                when={"field": "status", "equals": "extracted"},
+                when={"field": "status", "in": ["extracted", "validated"]},
             ),
         ],
     )

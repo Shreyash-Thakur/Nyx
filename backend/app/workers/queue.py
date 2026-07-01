@@ -134,25 +134,34 @@ def enqueue_ocr_job(invoice_id: str, job_id: str) -> str | None:
         return _run_inline("app.workers.invoice_processor.process_invoice", invoice_id, job_id)
 
 
-def enqueue_reconciliation_job(invoice_id: str) -> str | None:
+def enqueue_post_extraction_workflow_job(invoice_id: str) -> str | None:
+    """Advance the ``invoice_post_extraction`` workflow (reconciliation and
+    whatever else gets attached to it) for one invoice. Retries on transient
+    failure like the OCR job -- this queue previously had no retry policy at
+    all, so a single worker blip meant the invoice sat unreconciled forever."""
     backend = _select_backend()
     if backend == "inline":
-        return _run_inline("app.workers.reconciliation_worker.auto_reconcile", invoice_id)
+        return _run_inline("app.workers.workflow_worker.run_invoice_post_extraction", invoice_id)
 
     try:
-        from rq import Queue
-        queue = Queue("reconciliation", connection=_try_get_redis() or get_redis())
+        from rq import Queue, Retry
+        queue = Queue("workflow", connection=_try_get_redis() or get_redis())
         rq_job = queue.enqueue(
-            "app.workers.reconciliation_worker.auto_reconcile",
+            "app.workers.workflow_worker.run_invoice_post_extraction",
             invoice_id,
             job_timeout=settings.JOB_TIMEOUT,
             result_ttl=settings.JOB_RESULT_TTL,
+            failure_ttl=settings.JOB_FAILURE_TTL,
+            retry=Retry(max=3, interval=[10, 30, 60]),
         )
-        logger.info("reconciliation_job_enqueued", rq_job_id=rq_job.id, invoice_id=invoice_id)
+        logger.info("post_extraction_workflow_job_enqueued", rq_job_id=rq_job.id, invoice_id=invoice_id)
         return rq_job.id
     except Exception as exc:
-        logger.error("enqueue_recon_failed_falling_back_inline", error=str(exc), invoice_id=invoice_id)
-        return _run_inline("app.workers.reconciliation_worker.auto_reconcile", invoice_id)
+        logger.error(
+            "enqueue_post_extraction_workflow_failed_falling_back_inline",
+            error=str(exc), invoice_id=invoice_id,
+        )
+        return _run_inline("app.workers.workflow_worker.run_invoice_post_extraction", invoice_id)
 
 
 # Optional helper kept for callers that want a Queue directly. Returns None

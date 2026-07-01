@@ -66,10 +66,12 @@ def process_invoice(invoice_id: str, job_id: str) -> dict:
         svc = InvoiceService(db)
         svc.apply_extracted_data(inv_uuid, result_dict, job_uuid)
 
-        # Auto-trigger reconciliation if invoice_number extracted
+        # Advance the post-extraction workflow (reconciliation today, more
+        # steps later) through the workflow engine -- not a bespoke job that
+        # re-implements the same status check and reconcile call.
         if extracted.invoice_number:
-            from app.workers.queue import enqueue_reconciliation_job
-            enqueue_reconciliation_job(invoice_id)
+            from app.workers.queue import enqueue_post_extraction_workflow_job
+            enqueue_post_extraction_workflow_job(invoice_id)
 
         logger.info("ocr_completed", invoice_id=invoice_id, confidence=extracted.confidence)
         return {"status": "completed", "confidence": extracted.confidence}
