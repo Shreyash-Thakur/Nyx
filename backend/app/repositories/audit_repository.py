@@ -16,6 +16,7 @@ class AuditRepository(BaseRepository[AuditLog]):
         event_type: AuditEventType,
         description: str,
         *,
+        tenant_id: uuid.UUID,
         user_id: uuid.UUID | None = None,
         invoice_id: uuid.UUID | None = None,
         extra_data: dict | None = None,
@@ -23,6 +24,7 @@ class AuditRepository(BaseRepository[AuditLog]):
         user_agent: str | None = None,
     ) -> AuditLog:
         entry = AuditLog(
+            tenant_id=tenant_id,
             event_type=event_type,
             description=description,
             user_id=user_id,
@@ -33,19 +35,23 @@ class AuditRepository(BaseRepository[AuditLog]):
         )
         return self.save(entry)
 
-    def get_for_invoice(self, invoice_id: uuid.UUID, *, limit: int = 50) -> list[AuditLog]:
+    def get_for_invoice(
+        self, invoice_id: uuid.UUID, tenant_id: uuid.UUID, *, limit: int = 50
+    ) -> list[AuditLog]:
         stmt = (
             select(AuditLog)
-            .where(AuditLog.invoice_id == invoice_id)
+            .where(AuditLog.invoice_id == invoice_id, AuditLog.tenant_id == tenant_id)
             .order_by(AuditLog.created_at.desc())
             .limit(limit)
         )
         return list(self.db.scalars(stmt).all())
 
-    def get_for_user(self, user_id: uuid.UUID, *, limit: int = 100) -> list[AuditLog]:
+    def get_for_user(
+        self, user_id: uuid.UUID, tenant_id: uuid.UUID, *, limit: int = 100
+    ) -> list[AuditLog]:
         stmt = (
             select(AuditLog)
-            .where(AuditLog.user_id == user_id)
+            .where(AuditLog.user_id == user_id, AuditLog.tenant_id == tenant_id)
             .order_by(AuditLog.created_at.desc())
             .limit(limit)
         )
@@ -54,6 +60,7 @@ class AuditRepository(BaseRepository[AuditLog]):
     def list_paginated(
         self,
         *,
+        tenant_id: uuid.UUID,
         user_id: uuid.UUID | None = None,
         invoice_id: uuid.UUID | None = None,
         event_type: AuditEventType | None = None,
@@ -64,7 +71,7 @@ class AuditRepository(BaseRepository[AuditLog]):
     ) -> tuple[list[AuditLog], int]:
         from sqlalchemy import func
 
-        conditions = []
+        conditions = [AuditLog.tenant_id == tenant_id]
         if user_id:
             conditions.append(AuditLog.user_id == user_id)
         if invoice_id:

@@ -84,6 +84,7 @@ class InvoiceService:
         self.audit_repo.log(
             AuditEventType.INVOICE_UPLOADED,
             f"Invoice uploaded: {invoice.original_filename}",
+            tenant_id=invoice.tenant_id,
             user_id=current_user.id,
             invoice_id=invoice.id,
             extra_data={"size_bytes": len(content), "checksum": checksum},
@@ -151,6 +152,7 @@ class InvoiceService:
             self.audit_repo.log(
                 AuditEventType.INVOICE_UPDATED,
                 f"Invoice updated: {invoice_id}",
+                tenant_id=invoice.tenant_id,
                 user_id=current_user.id,
                 invoice_id=invoice.id,
                 extra_data={"changed_fields": changed},
@@ -205,6 +207,7 @@ class InvoiceService:
         self.audit_repo.log(
             AuditEventType.INVOICE_PROCESSING_COMPLETED,
             f"OCR extraction completed for invoice {invoice_id}",
+            tenant_id=invoice.tenant_id,
             invoice_id=invoice.id,
             extra_data={"confidence": extracted.get("ocr_confidence")},
         )
@@ -231,9 +234,12 @@ class InvoiceService:
             job.status = JobStatus.FAILED
             job.error_message = error
             job.completed_at = datetime.now(timezone.utc)
-        self.audit_repo.log(
-            AuditEventType.INVOICE_PROCESSING_FAILED,
-            f"Processing failed: {error[:200]}",
-            invoice_id=invoice_id,
-        )
+        tenant_id = invoice.tenant_id if invoice else (job.tenant_id if job else None)
+        if tenant_id is not None:
+            self.audit_repo.log(
+                AuditEventType.INVOICE_PROCESSING_FAILED,
+                f"Processing failed: {error[:200]}",
+                tenant_id=tenant_id,
+                invoice_id=invoice_id,
+            )
         self.db.commit()

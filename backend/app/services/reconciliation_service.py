@@ -58,6 +58,7 @@ class ReconciliationService:
             self.audit_repo.log(
                 AuditEventType.INVOICE_DUPLICATE_DETECTED,
                 f"Duplicate invoice detected: {invoice.id}",
+                tenant_id=invoice.tenant_id,
                 user_id=current_user.id,
                 invoice_id=invoice.id,
             )
@@ -92,6 +93,7 @@ class ReconciliationService:
         self.audit_repo.log(
             AuditEventType.RECONCILIATION_STARTED,
             f"Reconciliation {status.value} for invoice {invoice.id}",
+            tenant_id=invoice.tenant_id,
             user_id=current_user.id,
             invoice_id=invoice.id,
             extra_data={
@@ -134,6 +136,7 @@ class ReconciliationService:
         self.audit_repo.log(
             AuditEventType.RECONCILIATION_RESOLVED,
             f"Reconciliation record {record_id} resolved as {payload.status}",
+            tenant_id=record.tenant_id,
             user_id=current_user.id,
             invoice_id=record.invoice_id,
             extra_data={"resolution_notes": payload.resolution_notes},

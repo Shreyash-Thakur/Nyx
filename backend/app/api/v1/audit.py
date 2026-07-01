@@ -56,6 +56,7 @@ def list_audit_logs(
         effective_user_id = current_user.id
 
     items, total = AuditRepository(db).list_paginated(
+        tenant_id=current_user.tenant_id,
         user_id=effective_user_id,
         invoice_id=invoice_id,
         event_type=event_type,

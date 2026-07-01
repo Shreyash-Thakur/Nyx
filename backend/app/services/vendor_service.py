@@ -37,6 +37,7 @@ class VendorService:
         self.audit_repo.log(
             AuditEventType.VENDOR_CREATED,
             f"Vendor created: {vendor.name}",
+            tenant_id=vendor.tenant_id,
             user_id=current_user.id,
             extra_data={"vendor_id": str(vendor.id)},
         )
@@ -59,6 +60,7 @@ class VendorService:
         self.audit_repo.log(
             AuditEventType.VENDOR_UPDATED,
             f"Vendor updated: {vendor.name}",
+            tenant_id=vendor.tenant_id,
             user_id=current_user.id,
             extra_data={"vendor_id": str(vendor.id)},
         )

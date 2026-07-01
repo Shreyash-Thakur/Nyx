@@ -43,6 +43,7 @@ class AuthService:
         self.audit_repo.log(
             AuditEventType.USER_CREATED,
             f"New user registered: {user.email}",
+            tenant_id=user.tenant_id,
             user_id=user.id,
         )
         self.db.commit()
@@ -64,6 +65,7 @@ class AuthService:
         self.audit_repo.log(
             AuditEventType.USER_LOGIN,
             f"User logged in: {user.email}",
+            tenant_id=user.tenant_id,
             user_id=user.id,
             ip_address=ip_address,
         )
@@ -109,6 +111,7 @@ class AuthService:
         self.audit_repo.log(
             AuditEventType.PASSWORD_CHANGED,
             "Password changed",
+            tenant_id=user.tenant_id,
             user_id=user.id,
         )
         self.db.commit()
