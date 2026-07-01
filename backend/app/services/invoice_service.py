@@ -9,12 +9,10 @@ from app.config import settings
 from app.core.events import DomainEvent, event_bus
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
-from app.models.audit_log import AuditEventType
 from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.models.invoice_item import InvoiceItem
 from app.models.processing_job import JobStatus, JobType, ProcessingJob
 from app.models.user import User
-from app.repositories.audit_repository import AuditRepository
 from app.repositories.invoice_repository import InvoiceRepository
 from app.repositories.vendor_repository import VendorRepository
 from app.schemas.invoice import InvoiceFilter, InvoiceUpdate
@@ -31,7 +29,6 @@ class InvoiceService:
         self.db = db
         self.invoice_repo = InvoiceRepository(db)
         self.vendor_repo = VendorRepository(db)
-        self.audit_repo = AuditRepository(db)
         self.storage = StorageService()
 
     async def upload(self, file: UploadFile, current_user: User) -> Invoice:
@@ -81,14 +78,6 @@ class InvoiceService:
         self.db.flush()
         self.db.refresh(job)
 
-        self.audit_repo.log(
-            AuditEventType.INVOICE_UPLOADED,
-            f"Invoice uploaded: {invoice.original_filename}",
-            tenant_id=invoice.tenant_id,
-            user_id=current_user.id,
-            invoice_id=invoice.id,
-            extra_data={"size_bytes": len(content), "checksum": checksum},
-        )
         event_bus.publish(
             self.db,
             DomainEvent(
@@ -97,7 +86,12 @@ class InvoiceService:
                 aggregate_id=invoice.id,
                 actor_id=current_user.id,
                 tenant_id=invoice.tenant_id,
-                payload={"filename": invoice.original_filename, "checksum": checksum},
+                payload={
+                    "description": f"Invoice uploaded: {invoice.original_filename}",
+                    "filename": invoice.original_filename,
+                    "checksum": checksum,
+                    "size_bytes": len(content),
+                },
             ),
         )
         # Mark queued and commit BEFORE dispatch so the job row is visible to the
@@ -149,13 +143,19 @@ class InvoiceService:
 
         if changed:
             self.invoice_repo.save(invoice)
-            self.audit_repo.log(
-                AuditEventType.INVOICE_UPDATED,
-                f"Invoice updated: {invoice_id}",
-                tenant_id=invoice.tenant_id,
-                user_id=current_user.id,
-                invoice_id=invoice.id,
-                extra_data={"changed_fields": changed},
+            event_bus.publish(
+                self.db,
+                DomainEvent(
+                    name="invoice.updated",
+                    aggregate_type="invoice",
+                    aggregate_id=invoice.id,
+                    actor_id=current_user.id,
+                    tenant_id=invoice.tenant_id,
+                    payload={
+                        "description": f"Invoice updated: {invoice_id}",
+                        "changed_fields": changed,
+                    },
+                ),
             )
             self.db.commit()
 
@@ -204,13 +204,6 @@ class InvoiceService:
             job.completed_at = datetime.now(timezone.utc)
             job.result = {"fields_extracted": len(extracted)}
 
-        self.audit_repo.log(
-            AuditEventType.INVOICE_PROCESSING_COMPLETED,
-            f"OCR extraction completed for invoice {invoice_id}",
-            tenant_id=invoice.tenant_id,
-            invoice_id=invoice.id,
-            extra_data={"confidence": extracted.get("ocr_confidence")},
-        )
         event_bus.publish(
             self.db,
             DomainEvent(
@@ -218,7 +211,10 @@ class InvoiceService:
                 aggregate_type="invoice",
                 aggregate_id=invoice.id,
                 tenant_id=invoice.tenant_id,
-                payload={"confidence": extracted.get("ocr_confidence")},
+                payload={
+                    "description": f"OCR extraction completed for invoice {invoice_id}",
+                    "confidence": extracted.get("ocr_confidence"),
+                },
             ),
         )
         self.db.commit()
@@ -236,10 +232,17 @@ class InvoiceService:
             job.completed_at = datetime.now(timezone.utc)
         tenant_id = invoice.tenant_id if invoice else (job.tenant_id if job else None)
         if tenant_id is not None:
-            self.audit_repo.log(
-                AuditEventType.INVOICE_PROCESSING_FAILED,
-                f"Processing failed: {error[:200]}",
-                tenant_id=tenant_id,
-                invoice_id=invoice_id,
+            event_bus.publish(
+                self.db,
+                DomainEvent(
+                    name="invoice.processing_failed",
+                    aggregate_type="invoice",
+                    aggregate_id=invoice_id,
+                    tenant_id=tenant_id,
+                    payload={
+                        "description": f"Processing failed: {error[:200]}",
+                        "error": error[:200],
+                    },
+                ),
             )
         self.db.commit()

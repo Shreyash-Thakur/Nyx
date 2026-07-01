@@ -46,6 +46,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# ── Event subscribers ─────────────────────────────────────────────────────────
+# Registered at import time (not inside `lifespan`) so the process-wide event
+# bus singleton gets exactly one subscription regardless of how many times a
+# TestClient enters/exits the lifespan context within one process.
+from app.core.events import audit_subscriber  # noqa: E402
+
+audit_subscriber.register()
+
 # ── CORS ──────────────────────────────────────────────────────────────────────
 allowed_origins = (
     ["*"] if not settings.is_production

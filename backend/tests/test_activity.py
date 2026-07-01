@@ -29,7 +29,10 @@ def test_activity_is_tenant_scoped(client, admin_user, auth_headers, db):
     resp = client.get("/api/v1/activity", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) == 1  # only this tenant's event is visible
+    # auth_headers itself logs in (now a real user.logged_in domain event), so
+    # assert on the seeded event specifically rather than the raw count.
+    uploaded = [item for item in body if item["name"] == "invoice.uploaded"]
+    assert len(uploaded) == 1  # only this tenant's event is visible
 
 
 def test_activity_requires_auth(client):

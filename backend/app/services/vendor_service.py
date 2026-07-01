@@ -2,11 +2,10 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.core.events import DomainEvent, event_bus
 from app.core.exceptions import ConflictError
-from app.models.audit_log import AuditEventType
 from app.models.user import User
 from app.models.vendor import Vendor
-from app.repositories.audit_repository import AuditRepository
 from app.repositories.vendor_repository import VendorRepository
 from app.schemas.vendor import VendorCreate, VendorUpdate
 
@@ -15,7 +14,6 @@ class VendorService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.vendor_repo = VendorRepository(db)
-        self.audit_repo = AuditRepository(db)
 
     def create(self, payload: VendorCreate, current_user: User) -> Vendor:
         if payload.gst_number:
@@ -34,12 +32,16 @@ class VendorService:
             address=payload.address,
         )
         vendor = self.vendor_repo.save(vendor)
-        self.audit_repo.log(
-            AuditEventType.VENDOR_CREATED,
-            f"Vendor created: {vendor.name}",
-            tenant_id=vendor.tenant_id,
-            user_id=current_user.id,
-            extra_data={"vendor_id": str(vendor.id)},
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="vendor.created",
+                aggregate_type="vendor",
+                aggregate_id=vendor.id,
+                actor_id=current_user.id,
+                tenant_id=vendor.tenant_id,
+                payload={"description": f"Vendor created: {vendor.name}"},
+            ),
         )
         self.db.commit()
         return vendor
@@ -57,12 +59,16 @@ class VendorService:
             vendor.normalized_name = payload.name.strip().lower()
 
         vendor = self.vendor_repo.save(vendor)
-        self.audit_repo.log(
-            AuditEventType.VENDOR_UPDATED,
-            f"Vendor updated: {vendor.name}",
-            tenant_id=vendor.tenant_id,
-            user_id=current_user.id,
-            extra_data={"vendor_id": str(vendor.id)},
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="vendor.updated",
+                aggregate_type="vendor",
+                aggregate_id=vendor.id,
+                actor_id=current_user.id,
+                tenant_id=vendor.tenant_id,
+                payload={"description": f"Vendor updated: {vendor.name}"},
+            ),
         )
         self.db.commit()
         return vendor

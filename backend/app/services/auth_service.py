@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.events import DomainEvent, event_bus
 from app.core.exceptions import AuthenticationError, ConflictError
 from app.core.security import (
     create_access_token,
@@ -9,9 +10,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.audit_log import AuditEventType
 from app.models.user import User, UserRole
-from app.repositories.audit_repository import AuditRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 
@@ -20,7 +19,6 @@ class AuthService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.user_repo = UserRepository(db)
-        self.audit_repo = AuditRepository(db)
 
     def register(self, payload: RegisterRequest) -> User:
         if self.user_repo.email_exists(payload.email):
@@ -40,11 +38,16 @@ class AuthService:
             is_verified=False,
         )
         user = self.user_repo.save(user)
-        self.audit_repo.log(
-            AuditEventType.USER_CREATED,
-            f"New user registered: {user.email}",
-            tenant_id=user.tenant_id,
-            user_id=user.id,
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="user.created",
+                aggregate_type="user",
+                aggregate_id=user.id,
+                actor_id=user.id,
+                tenant_id=user.tenant_id,
+                payload={"description": f"New user registered: {user.email}"},
+            ),
         )
         self.db.commit()
         return user
@@ -62,12 +65,19 @@ class AuthService:
         )
         refresh_token = create_refresh_token(str(user.id))
 
-        self.audit_repo.log(
-            AuditEventType.USER_LOGIN,
-            f"User logged in: {user.email}",
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            ip_address=ip_address,
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="user.logged_in",
+                aggregate_type="user",
+                aggregate_id=user.id,
+                actor_id=user.id,
+                tenant_id=user.tenant_id,
+                payload={
+                    "description": f"User logged in: {user.email}",
+                    "ip_address": ip_address,
+                },
+            ),
         )
         self.db.commit()
 
@@ -108,10 +118,15 @@ class AuthService:
             raise AuthenticationError("Current password is incorrect")
         user.hashed_password = hash_password(new_password)
         self.user_repo.save(user)
-        self.audit_repo.log(
-            AuditEventType.PASSWORD_CHANGED,
-            "Password changed",
-            tenant_id=user.tenant_id,
-            user_id=user.id,
+        event_bus.publish(
+            self.db,
+            DomainEvent(
+                name="user.password_changed",
+                aggregate_type="user",
+                aggregate_id=user.id,
+                actor_id=user.id,
+                tenant_id=user.tenant_id,
+                payload={"description": "Password changed"},
+            ),
         )
         self.db.commit()
