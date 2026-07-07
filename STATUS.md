@@ -17,7 +17,10 @@
 > end-to-end pipeline walk and adversarial cases.
 
 This file is the ground-truth state of the **code**. The long-term design intent
-lives in `docs/architecture/` and `docs/architecture/adr/`.
+lives in `docs/architecture/` and `docs/architecture/adr/`. The top-level
+platform documents (2026-07-08) are at the repo root: `ARCHITECTURE.md`,
+`DOMAIN_MODEL.md`, `ARCHITECTURE_REVIEW.md`, `SECURITY_REVIEW.md`,
+`OBSERVABILITY.md`, `MVP.md`, `IMPLEMENTATION_PLAYBOOK.md`, `GITHUB_ISSUES.md`.
 
 ---
 

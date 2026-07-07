@@ -39,6 +39,11 @@ Implement Tier 2 as a **transactional outbox**:
    review-blocking requirement, not advice.
 6. **Ordering:** per-subject only (same aggregate → processed in publish
    order, via subject-hashed queue buckets); no global ordering, deliberately.
+   Because retries would otherwise reorder a subject's events, **a failed
+   delivery blocks its subject's bucket** until it succeeds or is moved to
+   the dead-letter state — per-subject ordering survives retries; head-of-line
+   blocking within one subject is accepted and alertable
+   (`ARCHITECTURE_REVIEW.md` P1-1).
 7. **Tier assignment default:** when in doubt, Tier 2. Tier 1 is reserved for
    handlers that must be atomic with the business write, take < ~5 ms, and do
    no I/O beyond Postgres. The current subscribers re-sort as: audit → Tier 1;

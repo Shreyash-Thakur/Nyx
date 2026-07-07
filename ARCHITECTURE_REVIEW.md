@@ -258,6 +258,7 @@ systems grow secret coupling.
 | C7 | `04-database.md` §4.9 events table has `delivery_status` columns; `05-event-bus.md` §5 has `delivered_to` JSONB instead; shipped 0003 migration has neither | ADR-0010's outbox table owns delivery state; the events row stays immutable (cleanest of the three designs). |
 | C8 | `02-modules.md`/`00-vision.md` five-module roster & CRM non-goal vs the ten-domain mandate | Resolved by ADR-0011 (Warehouse split; CRM narrowed to registry; funnel-CRM still banned). `DOMAIN_MODEL.md` authoritative. |
 | C9 | `01-platform-overview.md` allows "Accounts → Operations: link invoice to order/PO" sync call; `02-modules.md` DAG draws Accounts at the bottom with no such edge rendered | The call is legitimate (query-style); `DOMAIN_MODEL.md` §12 enumerates it explicitly. Prose lists, not diagrams, are the source of truth for allowed calls. |
+| C10 | `04-database.md` §1.1 mandates a singular `audit_log` table ("conceptually a single append-only log"); the shipped table is `audit_logs` | The shipped name wins — a cosmetic rename is not worth a migration. 04's singular rule is recorded as not applied; the reorg migration (ADR-0009) leaves the audit table's name untouched. |
 
 ---
 

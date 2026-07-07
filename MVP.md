@@ -39,6 +39,8 @@ this document defines *what ships when and what never ships*.
    (SEC-5).
 8. Frontend: real KPI states replacing illustrative fallbacks (TD-2b); the
    verify + approval queues are first-class screens.
+9. Observability Stage A (ops metrics endpoint, readiness incl. outbox drain,
+   operational alerts) — ships alongside the async tier it watches.
 
 **Exit test:** a fresh deployment, two users (accountant + founder-role), an
 invoice over threshold walks the entire pipeline including a rejected-then-
@@ -65,8 +67,6 @@ platform surgery, and the floor can drive work through WhatsApp.
 4. **Founder Intelligence v0:** event-fed daily KPI aggregates for the
    modules that exist (invoices, stock, tasks) + the snapshot page reading
    only aggregates. Alerts: parked-workflow and low-stock only.
-5. Observability Stage A (ops metrics endpoint, readiness incl. outbox,
-   operational alerts).
 
 **Exit test:** the 01-platform-overview request-lifecycle trace runs for real:
 a WhatsApp `DONE` on a transfer task completes it, advances the workflow,

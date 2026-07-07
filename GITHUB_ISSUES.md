@@ -22,11 +22,14 @@ blocks only its subject's bucket (test) · DLQ replay re-runs one handler for
 one event · notifications handler moved to Tier 2.
 
 ### 2. Tier-1 handlers re-raise: make audit atomic
-`platform` `security` `P0` · closes SEC-2 / review P0-1
+`platform` `security` `P0` · closes SEC-2 / review P0-1, P1-2
 Audit (and workflow advancement) registered as Tier 1: exceptions propagate
-and roll back the publisher. Bus keeps isolation for Tier 2 only.
+and roll back the publisher. Bus keeps isolation for Tier 2 only. Synchronous
+publish depth is capped (default 5); publishes beyond the cap spill to Tier 2
+(review P1-2 reentrancy guard).
 **AC:** forced audit failure ⇒ business write rolls back, HTTP 500 (test) ·
-docs 05 §7 semantics and code agree.
+publish chain deeper than the cap completes via Tier 2, never loops in-tx
+(test) · docs 05 §7 semantics and code agree.
 
 ### 3. Correlation/causation on events
 `platform` `P0` · review P2-1
@@ -192,9 +195,9 @@ routing, `wa_message_id` capture, send idempotency by `client_send_id`.
 Webhook (signature verify → dedup by `wa_message_id` → enqueue → 200); OTP
 phone claims (lockout, revocation cancels prompts); pending prompts;
 rule-based intent registry; outbound templating.
-**AC:** forged signature ⇒ 401 + metric, nothing enqueued (test) · unknown
-sender mutates nothing (test) · revoked claim's prompts cancelled (test) ·
-OTP 3-attempt lockout (test).
+**AC:** forged signature ⇒ 401 + metric, nothing enqueued (test) · webhook
+endpoint rate-limited (SEC-6/SEC-8) · unknown sender mutates nothing (test) ·
+revoked claim's prompts cancelled (test) · OTP 3-attempt lockout (test).
 
 ### 26. Approval prompt disambiguation
 `platform` `security` `P0` (within Phase 4) · review P0-3
