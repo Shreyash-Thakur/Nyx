@@ -1,6 +1,6 @@
 # Nyx — Project Status
 
-**Date:** 2026-07-02
+**Date:** 2026-07-08 (verified against the repo; test count and two post-regen commits folded in)
 **Branch:** `main`
 **Owner:** Shreyash Thakur · admin@nashermiles.com
 **Repo:** `C:\Users\shrey\Desktop\Dump\Nyx`
@@ -13,7 +13,7 @@
 > events and in-app notifications all updating as a side effect. The three core
 > foundations (multi-tenancy, event bus + durable log, RBAC) are in place and the
 > workflow engine is now the single execution path for post-extraction work.
-> Backend: **103 tests passing** on SQLite, including a real HTTP-level
+> Backend: **107 tests passing** on SQLite, including a real HTTP-level
 > end-to-end pipeline walk and adversarial cases.
 
 This file is the ground-truth state of the **code**. The long-term design intent
@@ -46,11 +46,15 @@ A push to turn the strong foundation into a genuinely usable, connected pipeline
    actually reaches `RECONCILED`; reconcile is idempotent on replay.
 7. **Tally XML export (Priority 5)** — dry-run voucher XML for reconciled invoices.
 8. **In-app notification engine (Priority 1/5)** — event-driven notifications for
-   approval-required, needs-verification, rejections, and discrepancies.
+   approval-required, needs-verification, rejections, and discrepancies; plus
+   unread-count and mark-all-read endpoints (per-user scoped) for a usable UI.
+9. **Health check respects the inline queue** — `/health` no longer reports
+   degraded when the inline queue is the intended backend; Redis is only
+   required in explicit redis mode.
 
 Commits this cycle: `38e94da`, `53bf1d5`, `f52f45d`, `7f8bbf7`, `3c069ec`,
 `9f14783`, `0325092`, `5a35e24`, `9289ac9`, `cffc68d`, `fec7e78`, `164edf2`,
-`29c058b`, `3c18142`.
+`29c058b`, `3c18142`, `32ee782`, `017b58a`.
 
 ---
 
@@ -127,7 +131,7 @@ in production. Local filesystem or S3 storage.
 | **Finance approval gate** — high-value invoices park at `pending_approval` | ✅ |
 | Reconciliation — self-consistency + reference match; idempotent; duplicate detect | ✅ |
 | **Tally XML export** — dry-run voucher XML for reconciled invoices | ✅ |
-| **Notifications** — event-driven in-app notifications + read/unread API | ✅ |
+| **Notifications** — event-driven in-app notifications + read/unread/unread-count/mark-all-read API | ✅ |
 | Vendors — CRUD + normalization | ✅ |
 | Dashboard — overview/summaries/queue/trends (SQLite-safe); verify/approval counts | ✅ |
 | Activity feed — tenant-scoped recent events; live on the dashboard | ✅ |
@@ -169,7 +173,7 @@ module-grouped nav; settings/analytics depth; no frontend tests.
 
 ## 6. Test coverage
 
-- **Backend: 103 passing** on in-memory SQLite (`pytest`, ~37s).
+- **Backend: 107 passing** on in-memory SQLite (`pytest`, ~34s).
 - **`test_e2e_pipeline.py`** walks the whole connected pipeline over real HTTP
   (upload → OCR → extract → workflow → gates → reconcile → Tally export →
   dashboard → events → audit), mocking only OCR text extraction and blob I/O.
