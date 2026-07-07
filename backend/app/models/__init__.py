@@ -1,4 +1,5 @@
 from app.models.audit_log import AuditLog, AuditEventType
+from app.models.auth_token import AuthActionToken, RefreshToken
 from app.models.event import Event
 from app.models.invoice import Invoice, InvoiceStatus, PaymentStatus
 from app.models.invoice_item import InvoiceItem
@@ -30,4 +31,6 @@ __all__ = [
     "User",
     "UserRole",
     "Vendor",
+    "RefreshToken",
+    "AuthActionToken",
 ]
