@@ -98,3 +98,183 @@ class TestRevocation:
         admin_user.is_active = False
         db.flush()
         assert _refresh(client, tokens["refresh_token"]).status_code == 401
+
+
+@pytest.fixture()
+def outbox(monkeypatch):
+    """Capture outbound mail so tests can read the raw action tokens."""
+    sent = []
+
+    class _Recorder:
+        def send(self, message):
+            sent.append(message)
+
+    monkeypatch.setattr("app.services.auth_service.get_mail_sender", lambda: _Recorder())
+    return sent
+
+
+def _token_from(mail):
+    return mail.body.split("token: ")[1].split()[0]
+
+
+def _register(client, email="verifyme@test.com", password="Secure1234"):
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "full_name": "Verify Me", "password": password},
+    )
+    assert resp.status_code == 201
+    return resp.json()
+
+
+class TestEmailVerification:
+    def test_verify_email_happy_path(self, client, db, outbox):
+        _register(client)
+        assert len(outbox) == 1
+        token = _token_from(outbox[0])
+
+        resp = client.post("/api/v1/auth/verify-email", json={"token": token})
+        assert resp.status_code == 200
+
+        from app.models.user import User
+
+        user = db.query(User).filter_by(email="verifyme@test.com").one()
+        assert user.is_verified is True
+
+    def test_verification_token_single_use(self, client, outbox):
+        _register(client)
+        token = _token_from(outbox[0])
+        assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 200
+        assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 401
+
+    def test_garbage_verification_token_rejected(self, client):
+        resp = client.post("/api/v1/auth/verify-email", json={"token": "not-a-real-token"})
+        assert resp.status_code == 401
+
+    def test_expired_verification_token_rejected(self, client, db, outbox):
+        _register(client)
+        token = _token_from(outbox[0])
+
+        from app.models.auth_token import AuthActionToken
+
+        row = db.query(AuthActionToken).filter_by(kind="email_verification").one()
+        row.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        db.flush()
+
+        assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 401
+
+    def test_resend_invalidates_older_token(self, client, outbox):
+        _register(client)
+        tokens = _login(client, email="verifyme@test.com", password="Secure1234")
+
+        resp = client.post(
+            "/api/v1/auth/resend-verification",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        assert resp.status_code == 200
+        assert len(outbox) == 2
+
+        old_token, new_token = _token_from(outbox[0]), _token_from(outbox[1])
+        assert client.post("/api/v1/auth/verify-email", json={"token": old_token}).status_code == 401
+        assert client.post("/api/v1/auth/verify-email", json={"token": new_token}).status_code == 200
+
+    def test_resend_when_already_verified(self, client, admin_user, auth_headers):
+        resp = client.post("/api/v1/auth/resend-verification", headers=auth_headers)
+        assert resp.status_code == 400
+
+    def test_login_blocked_for_unverified_only_when_required(
+        self, client, outbox, monkeypatch
+    ):
+        _register(client)
+        monkeypatch.setattr(settings, "REQUIRE_VERIFIED_EMAIL_FOR_LOGIN", True)
+
+        resp = client.post(
+            "/api/v1/auth/login",
+            json={"email": "verifyme@test.com", "password": "Secure1234"},
+        )
+        assert resp.status_code == 401
+        assert "not verified" in resp.json()["detail"].lower()
+
+        # Verifying unblocks login while the flag stays on.
+        token = _token_from(outbox[0])
+        assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 200
+        _login(client, email="verifyme@test.com", password="Secure1234")
+
+    def test_login_allowed_for_unverified_when_not_required(self, client, outbox):
+        _register(client)
+        _login(client, email="verifyme@test.com", password="Secure1234")
+
+
+class TestPasswordReset:
+    def test_forgot_password_response_identical_for_unknown_email(
+        self, client, admin_user, outbox
+    ):
+        known = client.post(
+            "/api/v1/auth/forgot-password", json={"email": "admin@nyxapp.com"}
+        )
+        unknown = client.post(
+            "/api/v1/auth/forgot-password", json={"email": "nobody@nowhere.com"}
+        )
+        assert known.status_code == unknown.status_code == 202
+        assert known.json() == unknown.json()
+        # But only the real account got mail.
+        assert len(outbox) == 1
+        assert outbox[0].to == "admin@nyxapp.com"
+
+    def test_reset_password_happy_path(self, client, admin_user, outbox):
+        pre_reset = _login(client)
+
+        client.post("/api/v1/auth/forgot-password", json={"email": "admin@nyxapp.com"})
+        token = _token_from(outbox[0])
+        resp = client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "new_password": "Reset1234"},
+        )
+        assert resp.status_code == 200
+
+        # Old password dead, old sessions dead, new password works.
+        old_login = client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@nyxapp.com", "password": "Admin1234"},
+        )
+        assert old_login.status_code == 401
+        assert _refresh(client, pre_reset["refresh_token"]).status_code == 401
+        _login(client, password="Reset1234")
+
+    def test_reset_token_single_use(self, client, admin_user, outbox):
+        client.post("/api/v1/auth/forgot-password", json={"email": "admin@nyxapp.com"})
+        token = _token_from(outbox[0])
+        first = client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "new_password": "Reset1234"},
+        )
+        assert first.status_code == 200
+        second = client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "new_password": "Other1234"},
+        )
+        assert second.status_code == 401
+
+    def test_newer_reset_request_invalidates_older_token(self, client, admin_user, outbox):
+        client.post("/api/v1/auth/forgot-password", json={"email": "admin@nyxapp.com"})
+        client.post("/api/v1/auth/forgot-password", json={"email": "admin@nyxapp.com"})
+        old_token, new_token = _token_from(outbox[0]), _token_from(outbox[1])
+
+        resp = client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": old_token, "new_password": "Reset1234"},
+        )
+        assert resp.status_code == 401
+        resp = client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": new_token, "new_password": "Reset1234"},
+        )
+        assert resp.status_code == 200
+
+    def test_reset_rejects_weak_password(self, client, admin_user, outbox):
+        client.post("/api/v1/auth/forgot-password", json={"email": "admin@nyxapp.com"})
+        token = _token_from(outbox[0])
+        resp = client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "new_password": "weak"},
+        )
+        assert resp.status_code == 422

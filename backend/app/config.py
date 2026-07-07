@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Auth lifecycle (SEC-1). Verification gating is off by default so
+    # existing single-tenant installs keep working until ops flips it on.
+    REQUIRE_VERIFIED_EMAIL_FOR_LOGIN: bool = False
+
+    # Mail — console logs the message (dev flow: read tokens from logs).
+    # SMTP/provider backends are future work behind the same port.
+    MAIL_BACKEND: Literal["console"] = "console"
+
     # File Storage
     STORAGE_BACKEND: Literal["local", "s3"] = "local"
     UPLOAD_DIR: str = str(_DEFAULT_UPLOAD_DIR)
