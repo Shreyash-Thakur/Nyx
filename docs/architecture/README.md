@@ -38,8 +38,22 @@ Short, dated records of the major architectural choices.
 | [0006](adr/0006-whatsapp-as-primary-ui.md) | WhatsApp as a primary UI, not a notification channel |
 | [0007](adr/0007-rules-first-llm-fallback.md) | Rule-based intents in the action path; LLM only as fallback |
 | [0008](adr/0008-tenant-id-everywhere.md) | Tenant-aware schema today; tenant onboarding deferred |
+| [0009](adr/0009-module-reorg-import-linter.md) | Reorganize by module before the second module exists; enforce with import-linter |
+| [0010](adr/0010-async-fanout-transactional-outbox.md) | Async event fan-out via a transactional outbox (TD-11) |
+| [0011](adr/0011-domain-map-warehouse-crm.md) | Domain map revision: Warehouse split from Inventory; CRM as narrow customer registry |
+| [0012](adr/0012-internal-plugin-architecture.md) | Plugin architecture: first-party registries, not a third-party plugin system |
+| [0013](adr/0013-workflow-definitions-code-to-data.md) | Workflow definitions migrate from code to versioned data, in stages |
 
 See [adr/README.md](adr/README.md) for the index in full.
+
+> **Note (2026-07-08):** the top-level platform documents now live at the repo
+> root: [`ARCHITECTURE.md`](../../ARCHITECTURE.md) (unifying system
+> architecture), [`DOMAIN_MODEL.md`](../../DOMAIN_MODEL.md) (authoritative
+> domain map — supersedes the five-module roster below per ADR-0011),
+> [`ARCHITECTURE_REVIEW.md`](../../ARCHITECTURE_REVIEW.md),
+> [`SECURITY_REVIEW.md`](../../SECURITY_REVIEW.md),
+> [`OBSERVABILITY.md`](../../OBSERVABILITY.md), [`MVP.md`](../../MVP.md),
+> [`IMPLEMENTATION_PLAYBOOK.md`](../../IMPLEMENTATION_PLAYBOOK.md).
 
 ## How to use this directory
 

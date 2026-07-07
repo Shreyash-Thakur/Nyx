@@ -16,3 +16,8 @@ Format: light Michael Nygard ADR — Context → Decision → Consequences → R
 | [0006](0006-whatsapp-as-primary-ui.md) | WhatsApp as a primary UI, not a notification channel | Accepted |
 | [0007](0007-rules-first-llm-fallback.md) | Rule-based intents in the action path; LLM only as fallback for fuzzy text | Accepted |
 | [0008](0008-tenant-id-everywhere.md) | Tenant-aware schema today; tenant onboarding deferred | Accepted |
+| [0009](0009-module-reorg-import-linter.md) | Reorganize by module before the second module exists; enforce with import-linter | Accepted |
+| [0010](0010-async-fanout-transactional-outbox.md) | Async event fan-out via a transactional outbox (TD-11) | Accepted |
+| [0011](0011-domain-map-warehouse-crm.md) | Domain map revision: Warehouse split from Inventory; CRM as narrow customer registry | Accepted |
+| [0012](0012-internal-plugin-architecture.md) | Plugin architecture: first-party registries, not a third-party plugin system | Accepted |
+| [0013](0013-workflow-definitions-code-to-data.md) | Workflow definitions migrate from code to versioned data, in stages | Accepted |
