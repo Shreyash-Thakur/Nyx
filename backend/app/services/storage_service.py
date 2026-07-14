@@ -80,6 +80,29 @@ class StorageService:
             raise StorageError(f"S3 upload failed: {exc}") from exc
         return f"s3://{settings.S3_BUCKET_NAME}/{key}"
 
+    def delete_best_effort(self, storage_path: str) -> None:
+        """Remove a stored blob as compensation when the DB write that owns it
+        fails. Best-effort by design: a leftover orphan file is a cleanup
+        concern, never worth masking the original error."""
+        try:
+            if storage_path.startswith("s3://"):
+                _, _, rest = storage_path.partition("s3://")
+                bucket, _, key = rest.partition("/")
+                import boto3
+
+                kwargs: dict = {
+                    "endpoint_url": settings.S3_ENDPOINT_URL,
+                    "aws_access_key_id": settings.S3_ACCESS_KEY_ID,
+                    "aws_secret_access_key": settings.S3_SECRET_ACCESS_KEY,
+                    "region_name": settings.S3_REGION,
+                }
+                s3 = boto3.client("s3", **{k: v for k, v in kwargs.items() if v})
+                s3.delete_object(Bucket=bucket, Key=key)
+            else:
+                (Path(settings.UPLOAD_DIR) / storage_path).unlink(missing_ok=True)
+        except Exception as exc:
+            logger.warning("storage_delete_failed", storage_path=storage_path, error=str(exc))
+
     async def read(self, storage_path: str) -> bytes:
         if storage_path.startswith("s3://"):
             return self._read_s3_sync(storage_path)

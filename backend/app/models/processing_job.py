@@ -3,10 +3,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db_types import GUID
+from app.core.db_types import GUID, db_enum
 from app.models.base import BaseModel
 from app.models.tenant import TenantMixin
 
@@ -42,12 +42,12 @@ class ProcessingJob(TenantMixin, BaseModel):
     )
 
     job_type: Mapped[JobType] = mapped_column(
-        Enum(JobType, name="job_type"),
+        db_enum(JobType, name="job_type"),
         nullable=False,
         index=True,
     )
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status"),
+        db_enum(JobStatus, name="job_status"),
         default=JobStatus.QUEUED,
         nullable=False,
         index=True,

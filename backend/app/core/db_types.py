@@ -5,11 +5,25 @@ without per-dialect branching in every model file.
 """
 from __future__ import annotations
 
+import enum
 import uuid
 
-from sqlalchemy import CHAR
+from sqlalchemy import CHAR, Enum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.types import TypeDecorator
+
+
+def db_enum(enum_cls: type[enum.Enum], *, name: str) -> Enum:
+    """Enum column that binds the members' *values*, not their names.
+
+    The Alembic migrations (0001 onward) created every Postgres enum type
+    with the lowercase member values ('uploaded', 'failed', ...), but a bare
+    ``Enum(EnumClass)`` binds the member *names* ('UPLOADED', 'FAILED').
+    SQLite never noticed (its Enum is just a VARCHAR); Postgres rejects the
+    write. Routing every model through this helper keeps the ORM and the
+    migrations speaking the same representation.
+    """
+    return Enum(enum_cls, name=name, values_callable=lambda e: [m.value for m in e])
 
 
 class GUID(TypeDecorator):

@@ -35,3 +35,31 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         response.headers["X-Request-ID"] = request_id
         return response
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Baseline security response headers (SEC-5).
+
+    The API serves JSON, so the CSP is a deny-everything default that only
+    matters if a response is ever coerced into a document context; the
+    /docs Swagger UI is exempted because it legitimately loads its own
+    scripts and styles.
+    """
+
+    _HEADERS = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+        "Cache-Control": "no-store",
+    }
+    _DOC_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+    async def dispatch(self, request: Request, call_next: Any) -> Response:
+        response = await call_next(request)
+        if request.url.path.startswith(self._DOC_PATHS):
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            return response
+        for header, value in self._HEADERS.items():
+            response.headers.setdefault(header, value)
+        return response

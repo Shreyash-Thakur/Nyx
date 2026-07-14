@@ -6,8 +6,64 @@ on:
   pull_request:
     branches: [main]
 
+defaults:
+  run:
+    working-directory: backend
+
 jobs:
-  test:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: ruff
+        run: python -m ruff check .
+      - name: mypy
+        run: python -m mypy
+      - name: pip-audit
+        # Accepted (documented in SECURITY_REVIEW.md / WORKLOG.md):
+        #   PYSEC-2026-1325 — ecdsa, transitive via python-jose; unused at
+        #     runtime (HS256 only), no fixed release exists.
+        #   PYSEC-2026-1845 — pytest, dev-only tooling.
+        run: >-
+          python -m pip_audit -r requirements.txt --no-deps
+          --ignore-vuln PYSEC-2026-1325
+          --ignore-vuln PYSEC-2026-1845
+
+  test-sqlite:
+    # The zero-dependency path a fresh clone runs: in-memory SQLite + inline queue.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install system deps (tesseract + poppler)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-eng poppler-utils
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: Run tests (SQLite, inline queue)
+        env:
+          SECRET_KEY: ci-secret-key-32-chars-not-for-prod
+          JWT_SECRET_KEY: ci-jwt-key-32-chars-not-for-prod!!
+          APP_ENV: development
+          QUEUE_BACKEND: inline
+          STORAGE_BACKEND: local
+          UPLOAD_DIR: /tmp/nyx_test_uploads
+        run: pytest tests/ --tb=short
+
+  test-postgres:
     runs-on: ubuntu-latest
 
     services:
@@ -35,9 +91,10 @@ jobs:
           --health-timeout 3s
           --health-retries 5
 
-    defaults:
-      run:
-        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
+      SECRET_KEY: ci-secret-key-32-chars-not-for-prod
+      JWT_SECRET_KEY: ci-jwt-key-32-chars-not-for-prod!!
 
     steps:
       - uses: actions/checkout@v4
@@ -58,21 +115,18 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Run migrations
-        env:
-          DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
-          SECRET_KEY: ci-secret-key-32-chars-not-for-prod
-          JWT_SECRET_KEY: ci-jwt-key-32-chars-not-for-prod!!
-        run: alembic upgrade head
+      - name: Migration round-trip (upgrade → downgrade → upgrade)
+        # Proves every migration's downgrade() is real, not decorative.
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
 
-      - name: Run tests
+      - name: Run tests (Postgres + Redis)
         env:
           TEST_DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
-          DATABASE_URL: postgresql://nyx:testpassword@localhost:5432/nyx_test
           REDIS_URL: redis://localhost:6379/1
-          SECRET_KEY: ci-secret-key-32-chars-not-for-prod
-          JWT_SECRET_KEY: ci-jwt-key-32-chars-not-for-prod!!
           APP_ENV: development
           STORAGE_BACKEND: local
           UPLOAD_DIR: /tmp/nyx_test_uploads
-        run: pytest tests/ -v --tb=short
+        run: pytest tests/ --tb=short

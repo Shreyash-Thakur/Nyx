@@ -2,10 +2,10 @@ import enum
 import uuid
 from typing import Any, TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, JSON, String, Text
+from sqlalchemy import ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db_types import GUID
+from app.core.db_types import GUID, db_enum
 from app.models.base import BaseModel
 from app.models.tenant import TenantMixin
 
@@ -53,7 +53,7 @@ class AuditLog(TenantMixin, BaseModel):
     __tablename__ = "audit_logs"
 
     event_type: Mapped[AuditEventType] = mapped_column(
-        Enum(AuditEventType, name="audit_event_type"),
+        db_enum(AuditEventType, name="audit_event_type"),
         nullable=False,
         index=True,
     )

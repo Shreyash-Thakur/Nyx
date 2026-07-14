@@ -4,10 +4,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db_types import GUID
+from app.core.db_types import GUID, db_enum
 from app.models.base import BaseModel
 from app.models.tenant import TenantMixin
 
@@ -45,6 +45,20 @@ class PaymentStatus(str, enum.Enum):
 
 class Invoice(TenantMixin, BaseModel):
     __tablename__ = "invoices"
+    # Race-safe duplicate-upload guard (SEC-4): the service's check-then-insert
+    # dedup can be raced by a concurrent identical upload; this index makes the
+    # database the arbiter. FAILED invoices are excluded so re-uploading after a
+    # processing failure keeps working.
+    __table_args__ = (
+        Index(
+            "ux_invoices__tenant_checksum_active",
+            "tenant_id",
+            "checksum",
+            unique=True,
+            postgresql_where=text("status != 'failed' AND checksum IS NOT NULL"),
+            sqlite_where=text("status != 'failed' AND checksum IS NOT NULL"),
+        ),
+    )
 
     # File metadata
     original_filename: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -55,13 +69,13 @@ class Invoice(TenantMixin, BaseModel):
 
     # Status
     status: Mapped[InvoiceStatus] = mapped_column(
-        Enum(InvoiceStatus, name="invoice_status"),
+        db_enum(InvoiceStatus, name="invoice_status"),
         default=InvoiceStatus.UPLOADED,
         nullable=False,
         index=True,
     )
     payment_status: Mapped[PaymentStatus] = mapped_column(
-        Enum(PaymentStatus, name="payment_status"),
+        db_enum(PaymentStatus, name="payment_status"),
         default=PaymentStatus.PENDING,
         nullable=False,
     )

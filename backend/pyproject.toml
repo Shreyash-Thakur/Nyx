@@ -1,0 +1,34 @@
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["app", "tests"]
+exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import order, B bugbear, UP pyupgrade.
+select = ["E", "W", "F", "I", "B", "UP"]
+ignore = [
+    # Line length is advisory in this codebase; long descriptive strings and
+    # SQLAlchemy column definitions read worse wrapped.
+    "E501",
+    # `raise ... from` inside except blocks: the API layer deliberately
+    # re-raises domain errors as HTTP errors without chaining.
+    "B904",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Imports intentionally happen after configure_logging() / env setup.
+"app/main.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+ignore_missing_imports = true      # jose, passlib, slowapi, rq ship no stubs
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+no_implicit_optional = true
+# The codebase predates a strict-mypy policy; new code should be fully typed.
+# These are OFF deliberately until a dedicated typing pass:
+disallow_untyped_defs = false

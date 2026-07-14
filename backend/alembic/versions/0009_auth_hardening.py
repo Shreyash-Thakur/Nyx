@@ -5,7 +5,7 @@ single-use action tokens for email verification / password reset. Portable
 across SQLite and PostgreSQL: GUID columns, no dialect branching.
 
 Revision ID: 0009
-Revises: 0008
+Revises: 0007
 """
 from typing import Sequence, Union
 
@@ -16,7 +16,7 @@ from app.core.db_types import GUID
 from app.core.tenancy import DEFAULT_TENANT_ID
 
 revision: str = "0009"
-down_revision: Union[str, None] = "0008"
+down_revision: Union[str, None] = "0007"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

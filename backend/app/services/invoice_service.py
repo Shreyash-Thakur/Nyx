@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -98,7 +99,16 @@ class InvoiceService:
         # worker. In inline mode the job runs synchronously during dispatch and
         # advances the invoice itself, so we must not write status afterwards.
         invoice.status = InvoiceStatus.QUEUED
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            # Concurrent identical upload raced past the check above; the
+            # partial unique index (SEC-4) is the arbiter. Compensate the
+            # already-written blob and report the same conflict the pre-check
+            # would have.
+            self.db.rollback()
+            self.storage.delete_best_effort(storage_path)
+            raise ConflictError("Duplicate file detected (concurrent upload)") from exc
 
         rq_id = enqueue_ocr_job(str(invoice.id), str(job.id))
         if rq_id:

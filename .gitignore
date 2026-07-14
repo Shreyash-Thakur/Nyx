@@ -28,6 +28,8 @@ nyx/uploads/
 # Local SQLite databases
 backend/nyx.db
 backend/nyx.db-*
+backend/*.db
+backend/*.db-*
 *.sqlite
 *.sqlite3
 

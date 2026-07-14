@@ -1,9 +1,10 @@
 import enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.db_types import db_enum
 from app.models.base import BaseModel
 from app.models.tenant import TenantMixin
 
@@ -25,7 +26,7 @@ class User(TenantMixin, BaseModel):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"),
+        db_enum(UserRole, name="user_role"),
         default=UserRole.ACCOUNTANT,
         nullable=False,
     )

@@ -3,10 +3,10 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db_types import GUID
+from app.core.db_types import GUID, db_enum
 from app.models.base import BaseModel
 from app.models.tenant import TenantMixin
 
@@ -50,13 +50,13 @@ class ReconciliationRecord(TenantMixin, BaseModel):
     )
 
     status: Mapped[ReconciliationStatus] = mapped_column(
-        Enum(ReconciliationStatus, name="reconciliation_status"),
+        db_enum(ReconciliationStatus, name="reconciliation_status"),
         default=ReconciliationStatus.PENDING,
         nullable=False,
         index=True,
     )
     discrepancy_type: Mapped[DiscrepancyType | None] = mapped_column(
-        Enum(DiscrepancyType, name="discrepancy_type"),
+        db_enum(DiscrepancyType, name="discrepancy_type"),
         nullable=True,
     )
 
