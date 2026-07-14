@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,7 +43,10 @@ class Settings(BaseSettings):
     # JWT — dev defaults; MUST be overridden in production.
     JWT_SECRET_KEY: str = "dev-insecure-jwt-secret-change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # 15 minutes (SEC-1): with server-side revocation covering only refresh
+    # tokens, the access-token TTL is the maximum lifetime of a revoked
+    # session -- keep it short.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Auth lifecycle (SEC-1). Verification gating is off by default so
@@ -102,6 +105,29 @@ class Settings(BaseSettings):
         if v.startswith("postgres://"):
             return v.replace("postgres://", "postgresql://", 1)
         return v
+
+    @model_validator(mode="after")
+    def guard_production_secrets(self) -> "Settings":
+        """Refuse to boot production on dev-default or weak secrets (SEC-3).
+
+        Dev/staging stay permissive so a fresh clone still runs with zero
+        config; production with a guessable signing key is silently fatal in
+        a way no later check can catch, so it fails here, at startup.
+        """
+        if self.APP_ENV != "production":
+            return self
+        dev_defaults = {
+            "dev-insecure-secret-change-me-in-production",
+            "dev-insecure-jwt-secret-change-me-in-production",
+        }
+        for name in ("SECRET_KEY", "JWT_SECRET_KEY"):
+            value = getattr(self, name)
+            if value in dev_defaults or len(value) < 32:
+                raise ValueError(
+                    f"{name} must be overridden with a strong value "
+                    f"(>= 32 chars, not the dev default) when APP_ENV=production"
+                )
+        return self
 
     @property
     def is_production(self) -> bool:

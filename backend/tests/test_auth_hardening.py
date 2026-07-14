@@ -278,3 +278,68 @@ class TestPasswordReset:
             json={"token": token, "new_password": "weak"},
         )
         assert resp.status_code == 422
+
+
+class TestProductionSecretGuardrails:
+    """SEC-3: production must not boot on dev-default or weak signing keys.
+
+    Settings are constructed directly with explicit kwargs and _env_file=None
+    so neither a developer .env nor the conftest env vars interfere.
+    """
+
+    _DEV_SECRET = "dev-insecure-secret-change-me-in-production"
+    _DEV_JWT = "dev-insecure-jwt-secret-change-me-in-production"
+
+    def test_production_with_dev_defaults_refuses_to_boot(self):
+        from pydantic import ValidationError as PydanticValidationError
+
+        from app.config import Settings
+
+        with pytest.raises(PydanticValidationError, match="SECRET_KEY"):
+            Settings(
+                APP_ENV="production",
+                SECRET_KEY=self._DEV_SECRET,
+                JWT_SECRET_KEY=self._DEV_JWT,
+                _env_file=None,
+            )
+
+    def test_production_with_short_secret_refuses_to_boot(self):
+        from pydantic import ValidationError as PydanticValidationError
+
+        from app.config import Settings
+
+        with pytest.raises(PydanticValidationError, match="JWT_SECRET_KEY"):
+            Settings(
+                APP_ENV="production",
+                SECRET_KEY="s" * 48,
+                JWT_SECRET_KEY="too-short",
+                _env_file=None,
+            )
+
+    def test_production_with_strong_secrets_boots(self):
+        from app.config import Settings
+
+        cfg = Settings(
+            APP_ENV="production",
+            SECRET_KEY="s" * 48,
+            JWT_SECRET_KEY="j" * 48,
+            _env_file=None,
+        )
+        assert cfg.is_production
+
+    def test_development_stays_permissive_with_dev_defaults(self):
+        from app.config import Settings
+
+        cfg = Settings(
+            APP_ENV="development",
+            SECRET_KEY=self._DEV_SECRET,
+            JWT_SECRET_KEY=self._DEV_JWT,
+            _env_file=None,
+        )
+        assert not cfg.is_production
+
+    def test_access_token_ttl_default_is_15_minutes(self):
+        from app.config import Settings
+
+        cfg = Settings(_env_file=None)
+        assert cfg.ACCESS_TOKEN_EXPIRE_MINUTES == 15
